@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { getAvailableSlotsForProduct } from "@/lib/bookings";
 import { CheckoutForm } from "./checkout-form";
 
 export const metadata: Metadata = {
@@ -24,6 +25,9 @@ export default async function CheckoutPage({
   const { username, slug } = await params;
   const product = await getCheckoutProduct(username, slug);
   if (!product) notFound();
+
+  const slots =
+    product.type === "BOOKING" ? await getAvailableSlotsForProduct(product.id) : [];
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-12">
@@ -61,6 +65,8 @@ export default async function CheckoutPage({
         username={username}
         slug={slug}
         isSubscription={product.type === "SUBSCRIPTION"}
+        isBooking={product.type === "BOOKING"}
+        slots={slots.map((slot) => slot.toISOString())}
         amountLabel={formatMoney(product.priceAmountMinor, product.currency)}
       />
     </div>

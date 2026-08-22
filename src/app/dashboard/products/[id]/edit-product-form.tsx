@@ -78,6 +78,22 @@ export function EditProductForm({ product }: { product: Product }) {
                 </select>
               </div>
             )}
+            {product.type === "BOOKING" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="bookingDurationMinutes">Session length</Label>
+                <select
+                  id="bookingDurationMinutes"
+                  name="bookingDurationMinutes"
+                  defaultValue={product.bookingDurationMinutes ?? 30}
+                  className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm"
+                >
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {product.type === "SUBSCRIPTION" && (

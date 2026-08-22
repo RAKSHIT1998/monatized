@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { generateOrderNumber } from "@/lib/orders";
 import { nextPeriodEnd } from "@/lib/billing-cycle";
+import { runAutomations } from "@/lib/automations";
 import type { PaymentProvider } from "@/generated/prisma/enums";
 
 export function generateSubscriptionAccessToken() {
@@ -68,7 +69,10 @@ export async function activateSubscription(
   subscriptionId: string,
   providerSubscriptionId: string,
 ) {
-  const subscription = await db.subscription.findUniqueOrThrow({ where: { id: subscriptionId } });
+  const subscription = await db.subscription.findUniqueOrThrow({
+    where: { id: subscriptionId },
+    include: { customer: { select: { email: true } } },
+  });
   if (subscription.status === "ACTIVE") return; // already activated — webhook retry
 
   await db.subscription.update({
@@ -81,6 +85,11 @@ export async function activateSubscription(
   });
 
   await recordBillingCycle(subscriptionId);
+
+  await runAutomations(subscription.creatorProfileId, "NEW_SUBSCRIBER", {
+    customerId: subscription.customerId,
+    customerEmail: subscription.customer.email,
+  });
 }
 
 /** A recurring renewal charge succeeded (real provider webhook, or the mock "simulate renewal" control). */
@@ -109,9 +118,15 @@ export async function markSubscriptionPastDue(subscriptionId: string) {
 }
 
 export async function cancelSubscriptionRecord(subscriptionId: string) {
-  await db.subscription.update({
+  const subscription = await db.subscription.update({
     where: { id: subscriptionId },
     data: { status: "CANCELLED", cancelAtPeriodEnd: false },
+    include: { customer: { select: { email: true } } },
+  });
+
+  await runAutomations(subscription.creatorProfileId, "SUBSCRIPTION_CANCELLED", {
+    customerId: subscription.customerId,
+    customerEmail: subscription.customer.email,
   });
 }
 

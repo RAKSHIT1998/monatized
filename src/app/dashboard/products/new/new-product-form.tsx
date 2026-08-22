@@ -9,18 +9,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-type ProductKind = "DIGITAL" | "COURSE" | "SUBSCRIPTION";
+type ProductKind = "DIGITAL" | "COURSE" | "SUBSCRIPTION" | "BOOKING";
 
 const KIND_NOUN: Record<ProductKind, string> = {
   DIGITAL: "product",
   COURSE: "course",
   SUBSCRIPTION: "subscription",
+  BOOKING: "booking type",
 };
 
 export function NewProductForm() {
   const [state, formAction, pending] = useActionState(createProduct, undefined);
   const [type, setType] = useState<ProductKind>("DIGITAL");
   const [billingInterval, setBillingInterval] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
+  const [durationMinutes, setDurationMinutes] = useState("30");
 
   return (
     <Card>
@@ -30,15 +32,19 @@ export function NewProductForm() {
           {type === "SUBSCRIPTION" && (
             <input type="hidden" name="billingInterval" value={billingInterval} />
           )}
+          {type === "BOOKING" && (
+            <input type="hidden" name="bookingDurationMinutes" value={durationMinutes} />
+          )}
 
           <div className="flex flex-col gap-2">
             <Label>What are you selling?</Label>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {(
                 [
                   ["DIGITAL", "Digital product", "A file customers download"],
                   ["COURSE", "Course", "Modules and lessons"],
                   ["SUBSCRIPTION", "Subscription", "Recurring monthly/yearly"],
+                  ["BOOKING", "Booking", "1:1 sessions on your calendar"],
                 ] as const
               ).map(([value, label, hint]) => (
                 <button
@@ -67,7 +73,9 @@ export function NewProductForm() {
                   ? "Complete Video Editing Course"
                   : type === "SUBSCRIPTION"
                     ? "VIP Membership"
-                    : "30-Day Fitness Plan"
+                    : type === "BOOKING"
+                      ? "1:1 Strategy Call"
+                      : "30-Day Fitness Plan"
               }
             />
             {state?.errors?.title && (
@@ -117,6 +125,22 @@ export function NewProductForm() {
                 </select>
               </div>
             )}
+            {type === "BOOKING" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="durationSelect">Session length</Label>
+                <select
+                  id="durationSelect"
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm"
+                >
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {type === "DIGITAL" && (
@@ -135,8 +159,12 @@ export function NewProductForm() {
           )}
           {type === "SUBSCRIPTION" && (
             <p className="text-sm text-muted-foreground">
-              Subscribers get a bookmarkable membership link — there&apos;s no gated content built
-              in yet, so describe what members get above.
+              Subscribers get a bookmarkable membership link with access to your members-only posts.
+            </p>
+          )}
+          {type === "BOOKING" && (
+            <p className="text-sm text-muted-foreground">
+              You&apos;ll set your weekly availability (in UTC) after creating this booking type.
             </p>
           )}
 

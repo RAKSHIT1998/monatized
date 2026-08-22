@@ -1,7 +1,5 @@
-// Monetized — Phase 1 (MVP) data model.
-// Only entities actually used by Phase 1 features are defined here.
-// Courses, bookings, subscriptions, memberships, community, affiliates and
-// automations are Phase 2/3 and will be added in their own migrations.
+// Monetized — data model, grown feature-by-feature (one migration per
+// feature area — see prisma/migrations for the history).
 
 generator client {
   provider = "prisma-client"
@@ -28,6 +26,7 @@ enum ProductType {
   DIGITAL
   COURSE
   SUBSCRIPTION
+  BOOKING
 }
 
 enum BillingInterval {
@@ -85,6 +84,42 @@ enum CouponDiscountType {
 enum LessonContentType {
   VIDEO
   TEXT
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum CommentAuthorType {
+  CREATOR
+  MEMBER
+}
+
+enum CampaignAudience {
+  ALL_CUSTOMERS
+  ACTIVE_SUBSCRIBERS
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENT
+}
+
+enum EmailLogStatus {
+  SENT
+  FAILED
+}
+
+enum AutomationTrigger {
+  ORDER_PAID
+  NEW_SUBSCRIBER
+  SUBSCRIPTION_CANCELLED
+}
+
+enum AutomationActionType {
+  ADD_CUSTOMER_TAG
+  SEND_EMAIL
 }
 
 model User {
@@ -145,6 +180,127 @@ model CreatorProfile {
   coupons         Coupon[]
   subscriptions   Subscription[]
   analyticsEvents AnalyticsEvent[]
+  posts           Post[]
+  affiliates      Affiliate[]
+  campaigns       Campaign[]
+  automations     Automation[]
+}
+
+// A trigger→action rule. actionConfig shape depends on actionType:
+// ADD_CUSTOMER_TAG -> { tag: string }, SEND_EMAIL -> { subject: string, body: string }.
+// Run failures are caught and logged, never thrown — an automation must not
+// be able to break the payment/subscription flow that triggered it.
+model Automation {
+  id               String               @id @default(cuid())
+  creatorProfileId String
+  trigger          AutomationTrigger
+  actionType       AutomationActionType
+  actionConfig     Json
+  isActive         Boolean              @default(true)
+  runCount         Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+}
+
+// A one-off email blast to a chosen audience. Sending is synchronous (loops
+// the audience and calls the EmailProvider directly) — fine at demo/small-list
+// scale; a real production version would hand this to a background queue.
+model Campaign {
+  id               String           @id @default(cuid())
+  creatorProfileId String
+  subject          String
+  body             String
+  audience         CampaignAudience
+  status           CampaignStatus   @default(DRAFT)
+  recipientCount   Int              @default(0)
+  sentAt           DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  logs           EmailLog[]
+}
+
+// One row per email actually sent — by a Campaign or (later) an Automation's
+// SEND_EMAIL action. campaignId is null for the latter.
+model EmailLog {
+  id         String         @id @default(cuid())
+  campaignId String?
+  customerId String?
+  toEmail    String
+  subject    String
+  provider   String
+  status     EmailLogStatus
+  createdAt  DateTime       @default(now())
+
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id])
+}
+
+// A partner who refers buyers via a tracked ?ref= link. Commission is a
+// ledger only — actual payout to the affiliate is a manual, out-of-band step
+// for the creator (no payout execution is implemented, same posture as not
+// faking payment success elsewhere in this app).
+model Affiliate {
+  id               String   @id @default(cuid())
+  creatorProfileId String
+  name             String
+  email            String
+  code             String // used in ?ref=CODE links; stored uppercase
+  commissionBps    Int // basis points of the order total, e.g. 1000 = 10%
+  accessToken      String   @unique // bookmarkable self-service stats link
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  creatorProfile CreatorProfile      @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  orders         Order[]
+  referrals      AffiliateReferral[]
+
+  @@unique([creatorProfileId, code])
+}
+
+// One commission credit per paid order — created in markOrderPaid, exactly
+// like coupon redemption counting happens there.
+model AffiliateReferral {
+  id                    String   @id @default(cuid())
+  affiliateId           String
+  orderId               String   @unique
+  commissionAmountMinor Int
+  createdAt             DateTime @default(now())
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// A creator's community feed post, gated to active subscribers when
+// membersOnly is true. There's no per-tier gating — any of the creator's
+// ACTIVE/PAST_DUE subscriptions grants access to all of their members-only posts.
+model Post {
+  id               String   @id @default(cuid())
+  creatorProfileId String
+  title            String
+  body             String
+  membersOnly      Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  comments       PostComment[]
+}
+
+model PostComment {
+  id         String            @id @default(cuid())
+  postId     String
+  authorType CommentAuthorType
+  customerId String? // set when authorType is MEMBER; null for the creator's own replies
+  body       String
+  createdAt  DateTime          @default(now())
+
+  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id])
 }
 
 model StoreTheme {
@@ -161,31 +317,71 @@ model StoreTheme {
 }
 
 model Product {
-  id               String           @id @default(cuid())
-  creatorProfileId String
-  type             ProductType      @default(DIGITAL)
-  title            String
-  slug             String
-  description      String?
-  priceAmountMinor Int
-  currency         String           @default("INR")
-  billingInterval  BillingInterval? // only set for SUBSCRIPTION products
-  coverImageUrl    String?
-  status           ProductStatus    @default(DRAFT)
-  position         Int              @default(0)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                     String           @id @default(cuid())
+  creatorProfileId       String
+  type                   ProductType      @default(DIGITAL)
+  title                  String
+  slug                   String
+  description            String?
+  priceAmountMinor       Int
+  currency               String           @default("INR")
+  billingInterval        BillingInterval? // only set for SUBSCRIPTION products
+  // only set for BOOKING products. All availability rules and slot math are in UTC
+  // for MVP simplicity — see README "Known items" before relying on this across timezones.
+  bookingDurationMinutes Int?
+  coverImageUrl          String?
+  status                 ProductStatus    @default(DRAFT)
+  position               Int              @default(0)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
-  creatorProfile  CreatorProfile       @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  digitalFiles    DigitalProductFile[]
-  modules         CourseModule[]
-  enrollments     CourseEnrollment[]
-  subscriptions   Subscription[]
-  orderItems      OrderItem[]
-  downloadGrants  DownloadGrant[]
-  analyticsEvents AnalyticsEvent[]
+  creatorProfile    CreatorProfile       @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  digitalFiles      DigitalProductFile[]
+  modules           CourseModule[]
+  enrollments       CourseEnrollment[]
+  subscriptions     Subscription[]
+  orderItems        OrderItem[]
+  downloadGrants    DownloadGrant[]
+  analyticsEvents   AnalyticsEvent[]
+  availabilityRules AvailabilityRule[]
+  bookings          Booking[]
 
   @@unique([creatorProfileId, slug])
+}
+
+// A weekly-recurring availability window for a BOOKING product, in UTC minutes-from-midnight.
+model AvailabilityRule {
+  id          String   @id @default(cuid())
+  productId   String
+  dayOfWeek   Int // 0 = Sunday .. 6 = Saturday
+  startMinute Int // minutes from UTC midnight, e.g. 540 = 09:00
+  endMinute   Int
+  createdAt   DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// A single confirmed (or cancelled) slot on a BOOKING product. One Booking per
+// paid Order, exactly like CourseEnrollment/Subscription — the accessToken is
+// the buyer's only way back in since there's no customer login system.
+model Booking {
+  id          String        @id @default(cuid())
+  orderId     String        @unique
+  productId   String
+  customerId  String
+  startsAt    DateTime
+  endsAt      DateTime
+  status      BookingStatus @default(CONFIRMED)
+  accessToken String        @unique
+  createdAt   DateTime      @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  // Enforced at the DB level so two buyers can never win the same slot, even
+  // under concurrent checkout attempts — the second insert simply fails.
+  @@unique([productId, startsAt])
 }
 
 model CourseModule {
@@ -274,6 +470,9 @@ model Customer {
   orders            Order[]
   courseEnrollments CourseEnrollment[]
   subscriptions     Subscription[]
+  bookings          Booking[]
+  postComments      PostComment[]
+  emailLogs         EmailLog[]
 
   @@unique([creatorProfileId, email])
 }
@@ -284,6 +483,7 @@ model Order {
   creatorProfileId       String
   customerId             String
   couponId               String?
+  affiliateId            String? // captured at checkout-start from the ?ref= cookie, see proxy.ts
   subscriptionId         String? // set for both the first charge and every renewal of a subscription
   status                 OrderStatus @default(PENDING)
   currency               String      @default("INR")
@@ -294,15 +494,18 @@ model Order {
   createdAt              DateTime    @default(now())
   updatedAt              DateTime    @updatedAt
 
-  creatorProfile   CreatorProfile    @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  customer         Customer          @relation(fields: [customerId], references: [id])
-  coupon           Coupon?           @relation(fields: [couponId], references: [id])
-  subscription     Subscription?     @relation(fields: [subscriptionId], references: [id])
-  items            OrderItem[]
-  payment          Payment?
-  downloadGrants   DownloadGrant[]
-  courseEnrollment CourseEnrollment?
-  analyticsEvents  AnalyticsEvent[]
+  creatorProfile    CreatorProfile     @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  customer          Customer           @relation(fields: [customerId], references: [id])
+  coupon            Coupon?            @relation(fields: [couponId], references: [id])
+  affiliate         Affiliate?         @relation(fields: [affiliateId], references: [id])
+  subscription      Subscription?      @relation(fields: [subscriptionId], references: [id])
+  items             OrderItem[]
+  payment           Payment?
+  downloadGrants    DownloadGrant[]
+  courseEnrollment  CourseEnrollment?
+  booking           Booking?
+  affiliateReferral AffiliateReferral?
+  analyticsEvents   AnalyticsEvent[]
 
   @@index([creatorProfileId, status, createdAt])
 }

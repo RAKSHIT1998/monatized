@@ -34,7 +34,15 @@ export default async function ProductsPage() {
     where: { creatorProfileId: user.creatorProfile.id },
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { digitalFiles: true, orderItems: true, modules: true, subscriptions: true } },
+      _count: {
+        select: {
+          digitalFiles: true,
+          orderItems: true,
+          modules: true,
+          subscriptions: true,
+          bookings: true,
+        },
+      },
     },
   });
 
@@ -98,7 +106,9 @@ export default async function ProductsPage() {
                           ? "Course"
                           : product.type === "SUBSCRIPTION"
                             ? "Subscription"
-                            : "Digital"}
+                            : product.type === "BOOKING"
+                              ? "Booking"
+                              : "Digital"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -116,6 +126,8 @@ export default async function ProductsPage() {
                         `${product._count.digitalFiles} file${product._count.digitalFiles === 1 ? "" : "s"}`}
                       {product.type === "SUBSCRIPTION" &&
                         `${product._count.subscriptions} subscriber${product._count.subscriptions === 1 ? "" : "s"}`}
+                      {product.type === "BOOKING" &&
+                        `${product._count.bookings} booking${product._count.bookings === 1 ? "" : "s"}`}
                     </TableCell>
                     <TableCell>{product._count.orderItems}</TableCell>
                   </TableRow>

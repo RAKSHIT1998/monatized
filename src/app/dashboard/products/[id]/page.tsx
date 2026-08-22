@@ -8,6 +8,8 @@ import { ProductStatusControls } from "./product-status-controls";
 import { ProductCoverUploader } from "./product-cover-uploader";
 import { CourseCurriculum } from "./course-curriculum";
 import { SubscribersPanel } from "./subscribers-panel";
+import { AvailabilityPanel } from "./availability-panel";
+import { BookingsPanel } from "./bookings-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
@@ -32,6 +34,12 @@ export default async function EditProductPage({
       },
       subscriptions: {
         orderBy: { createdAt: "desc" },
+        include: { customer: { select: { email: true } } },
+      },
+      availabilityRules: { orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }] },
+      bookings: {
+        where: { order: { status: "PAID" } },
+        orderBy: { startsAt: "desc" },
         include: { customer: { select: { email: true } } },
       },
       _count: { select: { orderItems: true } },
@@ -83,6 +91,33 @@ export default async function EditProductPage({
             />
           </CardContent>
         </Card>
+      )}
+      {product.type === "BOOKING" && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Availability</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AvailabilityPanel productId={product.id} rules={product.availabilityRules} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Bookings</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <BookingsPanel
+                bookings={product.bookings.map((booking) => ({
+                  id: booking.id,
+                  email: booking.customer.email,
+                  startsAt: booking.startsAt.toISOString(),
+                  status: booking.status,
+                }))}
+              />
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

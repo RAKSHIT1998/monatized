@@ -11,6 +11,7 @@ import { checkProductLimit } from "@/lib/plan-limits";
 import { toMinorUnits } from "@/lib/money";
 import { MAX_PRODUCT_FILE_BYTES, productDetailsSchema } from "@/lib/validation/product";
 import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_FILE_BYTES } from "@/lib/validation/store";
+import { bookingDurationSchema } from "@/lib/validation/booking";
 
 export type ProductFormState =
   | {
@@ -40,7 +41,14 @@ export async function createProduct(
   }
 
   const rawType = formData.get("type");
-  const type = rawType === "COURSE" ? "COURSE" : rawType === "SUBSCRIPTION" ? "SUBSCRIPTION" : "DIGITAL";
+  const type =
+    rawType === "COURSE"
+      ? "COURSE"
+      : rawType === "SUBSCRIPTION"
+        ? "SUBSCRIPTION"
+        : rawType === "BOOKING"
+          ? "BOOKING"
+          : "DIGITAL";
 
   const validatedFields = productDetailsSchema.safeParse({
     title: formData.get("title"),
@@ -65,6 +73,15 @@ export async function createProduct(
 
   const billingInterval = formData.get("billingInterval") === "YEARLY" ? "YEARLY" : "MONTHLY";
 
+  let bookingDurationMinutes: number | null = null;
+  if (type === "BOOKING") {
+    const durationValidation = bookingDurationSchema.safeParse(formData.get("bookingDurationMinutes"));
+    if (!durationValidation.success) {
+      return { errors: { bookingDurationMinutes: durationValidation.error.flatten().formErrors } };
+    }
+    bookingDurationMinutes = durationValidation.data;
+  }
+
   const { title, description, priceAmount } = validatedFields.data;
   const slug = await generateUniqueProductSlug(creatorProfileId, title);
 
@@ -77,6 +94,7 @@ export async function createProduct(
       description,
       priceAmountMinor: toMinorUnits(priceAmount),
       billingInterval: type === "SUBSCRIPTION" ? billingInterval : null,
+      bookingDurationMinutes,
       status: "DRAFT",
     },
   });
@@ -123,6 +141,15 @@ export async function updateProductDetails(
   const { title, description, priceAmount } = validatedFields.data;
   const billingInterval = formData.get("billingInterval");
 
+  let bookingDurationMinutes: number | undefined;
+  if (product.type === "BOOKING") {
+    const durationValidation = bookingDurationSchema.safeParse(formData.get("bookingDurationMinutes"));
+    if (!durationValidation.success) {
+      return { errors: { bookingDurationMinutes: durationValidation.error.flatten().formErrors } };
+    }
+    bookingDurationMinutes = durationValidation.data;
+  }
+
   await db.product.update({
     where: { id: productId },
     data: {
@@ -132,6 +159,7 @@ export async function updateProductDetails(
       ...(product.type === "SUBSCRIPTION" && (billingInterval === "MONTHLY" || billingInterval === "YEARLY")
         ? { billingInterval }
         : {}),
+      ...(bookingDurationMinutes !== undefined ? { bookingDurationMinutes } : {}),
     },
   });
 
@@ -155,6 +183,11 @@ export async function setProductStatus(productId: string, status: "DRAFT" | "PUB
       const fileCount = await db.digitalProductFile.count({ where: { productId } });
       if (fileCount === 0) {
         throw new Error("Add a file before publishing this product.");
+      }
+    } else if (product.type === "BOOKING") {
+      const ruleCount = await db.availabilityRule.count({ where: { productId } });
+      if (ruleCount === 0) {
+        throw new Error("Add at least one availability window before publishing this booking type.");
       }
     }
   }

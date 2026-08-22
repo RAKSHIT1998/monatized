@@ -11,11 +11,15 @@ export function CheckoutForm({
   username,
   slug,
   isSubscription,
+  isBooking = false,
+  slots = [],
   amountLabel,
 }: {
   username: string;
   slug: string;
   isSubscription: boolean;
+  isBooking?: boolean;
+  slots?: string[];
   amountLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(startCheckout, undefined);
@@ -24,6 +28,7 @@ export function CheckoutForm({
     { discountLabel: string; totalLabel: string } | { message: string } | null
   >(null);
   const [checkingCoupon, setCheckingCoupon] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<string>("");
 
   async function applyCoupon() {
     if (!couponInput.trim()) return;
@@ -43,6 +48,16 @@ export function CheckoutForm({
       ? `Pay ${couponPreview.totalLabel}`
       : `Pay ${amountLabel}`;
 
+  const slotsByDay = new Map<string, string[]>();
+  for (const iso of slots) {
+    const dayKey = new Date(iso).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    slotsByDay.set(dayKey, [...(slotsByDay.get(dayKey) ?? []), iso]);
+  }
+
   return (
     <Card>
       <CardContent>
@@ -50,6 +65,45 @@ export function CheckoutForm({
           <input type="hidden" name="username" value={username} />
           <input type="hidden" name="slug" value={slug} />
           <input type="hidden" name="couponCode" value={couponInput} />
+          {isBooking && <input type="hidden" name="startsAt" value={selectedSlot} />}
+
+          {isBooking && (
+            <div className="flex flex-col gap-3">
+              <Label>Pick a time</Label>
+              {slots.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No times are available right now — check back soon.
+                </p>
+              ) : (
+                <div className="flex max-h-64 flex-col gap-3 overflow-y-auto pr-1">
+                  {[...slotsByDay.entries()].map(([day, isoTimes]) => (
+                    <div key={day} className="flex flex-col gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">{day}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {isoTimes.map((iso) => (
+                          <button
+                            key={iso}
+                            type="button"
+                            onClick={() => setSelectedSlot(iso)}
+                            className={`rounded-md border px-2.5 py-1.5 text-sm transition-colors ${
+                              selectedSlot === iso
+                                ? "border-foreground bg-foreground text-background"
+                                : "hover:bg-muted"
+                            }`}
+                          >
+                            {new Date(iso).toLocaleTimeString(undefined, {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="name">Name (optional)</Label>
@@ -108,7 +162,12 @@ export function CheckoutForm({
 
           {state?.message && <p className="text-sm text-destructive">{state.message}</p>}
 
-          <Button type="submit" size="lg" disabled={pending} className="mt-2">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={pending || (isBooking && !selectedSlot)}
+            className="mt-2"
+          >
             {pending ? "Redirecting to payment…" : payLabel}
           </Button>
         </form>

@@ -1,7 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { findActiveAffiliateByCode } from "@/lib/affiliates";
+import { REF_COOKIE_NAME } from "@/lib/affiliate-constants";
 import { getPaymentProvider } from "@/lib/payments";
 import { generateOrderNumber, markOrderFailed, markOrderPaid } from "@/lib/orders";
 import { calculateDiscountMinor } from "@/lib/coupons";
@@ -12,7 +15,9 @@ import {
   cancelSubscriptionRecord,
   generateSubscriptionAccessToken,
 } from "@/lib/subscriptions";
+import { generateBookingAccessToken } from "@/lib/bookings";
 import { startCheckoutSchema } from "@/lib/validation/checkout";
+import { bookingSlotSelectionSchema } from "@/lib/validation/booking";
 import type { Product } from "@/generated/prisma/client";
 
 export type CheckoutFormState =
@@ -61,6 +66,33 @@ export async function startCheckout(
     return startSubscriptionCheckout(product, customer.id, email, username, slug);
   }
 
+  let bookingSlot: { startsAt: Date; endsAt: Date } | null = null;
+  if (product.type === "BOOKING") {
+    if (!product.bookingDurationMinutes) {
+      return { message: "This booking isn't configured correctly." };
+    }
+    const slotValidation = bookingSlotSelectionSchema.safeParse({
+      startsAt: formData.get("startsAt"),
+    });
+    if (!slotValidation.success) {
+      return { message: "Pick a time slot before continuing." };
+    }
+    const startsAt = new Date(slotValidation.data.startsAt);
+    if (startsAt.getTime() < Date.now()) {
+      return { message: "That time has already passed — pick another slot." };
+    }
+    const taken = await db.booking.findUnique({
+      where: { productId_startsAt: { productId: product.id, startsAt } },
+    });
+    if (taken && taken.status === "CONFIRMED") {
+      return { message: "That slot was just booked by someone else — pick another." };
+    }
+    bookingSlot = {
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + product.bookingDurationMinutes * 60_000),
+    };
+  }
+
   let coupon = null;
   if (couponCode) {
     const result = await lookupValidCoupon(product.creatorProfileId, couponCode);
@@ -70,6 +102,11 @@ export async function startCheckout(
     coupon = result.coupon;
   }
 
+  // Attribution is best-effort and silent — an expired/invalid ref cookie
+  // should never block a purchase, it just means no affiliate gets credited.
+  const refCode = (await cookies()).get(REF_COOKIE_NAME)?.value;
+  const affiliate = refCode ? await findActiveAffiliateByCode(product.creatorProfileId, refCode) : null;
+
   const subtotalAmountMinor = product.priceAmountMinor;
   const discountAmountMinor = coupon ? calculateDiscountMinor(subtotalAmountMinor, coupon) : 0;
   const totalAmountMinor = subtotalAmountMinor - discountAmountMinor;
@@ -78,46 +115,78 @@ export async function startCheckout(
   );
   const orderNumber = generateOrderNumber();
 
-  const order = await db.$transaction(async (tx) => {
-    const created = await tx.order.create({
-      data: {
-        orderNumber,
-        creatorProfileId: product.creatorProfileId,
-        customerId: customer.id,
-        couponId: coupon?.id,
-        currency: product.currency,
-        subtotalAmountMinor,
-        discountAmountMinor,
-        totalAmountMinor,
-        platformFeeAmountMinor,
-        items: {
-          create: {
+  let order;
+  try {
+    order = await db.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          orderNumber,
+          creatorProfileId: product.creatorProfileId,
+          customerId: customer.id,
+          couponId: coupon?.id,
+          affiliateId: affiliate?.id,
+          currency: product.currency,
+          subtotalAmountMinor,
+          discountAmountMinor,
+          totalAmountMinor,
+          platformFeeAmountMinor,
+          items: {
+            create: {
+              productId: product.id,
+              titleSnapshot: product.title,
+              priceAmountMinorSnapshot: product.priceAmountMinor,
+            },
+          },
+          payment: {
+            create: {
+              provider: getPaymentProvider().name,
+              amountMinor: totalAmountMinor,
+              currency: product.currency,
+            },
+          },
+        },
+      });
+
+      // Reserved right away (before payment even starts) so the DB's unique
+      // constraint on (productId, startsAt) is the single source of truth for
+      // "who won this slot" — a failed/abandoned checkout later frees it again
+      // via markOrderFailed's booking cleanup.
+      if (bookingSlot) {
+        await tx.booking.create({
+          data: {
+            orderId: created.id,
             productId: product.id,
-            titleSnapshot: product.title,
-            priceAmountMinorSnapshot: product.priceAmountMinor,
+            customerId: customer.id,
+            startsAt: bookingSlot.startsAt,
+            endsAt: bookingSlot.endsAt,
+            accessToken: generateBookingAccessToken(),
           },
-        },
-        payment: {
-          create: {
-            provider: getPaymentProvider().name,
-            amountMinor: totalAmountMinor,
-            currency: product.currency,
-          },
-        },
-      },
-    });
+        });
+      }
 
-    await tx.analyticsEvent.create({
-      data: {
-        creatorProfileId: product.creatorProfileId,
-        type: "CHECKOUT_STARTED",
-        productId: product.id,
-        orderId: created.id,
-      },
-    });
+      await tx.analyticsEvent.create({
+        data: {
+          creatorProfileId: product.creatorProfileId,
+          type: "CHECKOUT_STARTED",
+          productId: product.id,
+          orderId: created.id,
+        },
+      });
 
-    return created;
-  });
+      return created;
+    });
+  } catch (error) {
+    if (
+      bookingSlot &&
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      return { message: "That slot was just booked by someone else — pick another." };
+    }
+    throw error;
+  }
 
   // A coupon can cover the full price — nothing to charge, so skip the payment
   // provider entirely rather than sending a $0 request it may reject.

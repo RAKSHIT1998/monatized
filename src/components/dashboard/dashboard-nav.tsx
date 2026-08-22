@@ -12,6 +12,10 @@ import {
   Settings,
   CreditCard,
   Tag,
+  MessagesSquare,
+  Handshake,
+  Mail,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +23,10 @@ export const DASHBOARD_NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/products", label: "Products", icon: Package },
   { href: "/dashboard/coupons", label: "Coupons", icon: Tag },
+  { href: "/dashboard/community", label: "Community", icon: MessagesSquare },
+  { href: "/dashboard/affiliates", label: "Affiliates", icon: Handshake },
+  { href: "/dashboard/campaigns", label: "Email", icon: Mail },
+  { href: "/dashboard/automations", label: "Automations", icon: Zap },
   { href: "/dashboard/orders", label: "Orders", icon: ShoppingBag },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },

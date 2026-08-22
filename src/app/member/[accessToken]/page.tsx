@@ -1,10 +1,14 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { hasActiveMembership } from "@/lib/membership";
 import { MemberActions } from "./member-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { MessagesSquare } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Your membership — Monetized",
@@ -78,6 +82,16 @@ export default async function MemberPage({
             <p className="whitespace-pre-line text-sm text-muted-foreground">
               {subscription.product.description}
             </p>
+          )}
+
+          {hasActiveMembership(subscription.status) && (
+            <Link
+              href={`/member/${accessToken}/community`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <MessagesSquare className="size-4" />
+              Community
+            </Link>
           )}
 
           <MemberActions

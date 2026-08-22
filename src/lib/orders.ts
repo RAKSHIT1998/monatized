@@ -1,6 +1,8 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { calculateCommissionMinor } from "@/lib/affiliates";
+import { runAutomations } from "@/lib/automations";
 
 export function generateOrderNumber() {
   return `MON-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -20,7 +22,11 @@ const DOWNLOAD_LIMIT_PER_GRANT = 5;
 export async function markOrderPaid(orderId: string, providerPaymentId: string) {
   const order = await db.order.findUnique({
     where: { id: orderId },
-    include: { items: { include: { product: { include: { digitalFiles: true } } } } },
+    include: {
+      items: { include: { product: { include: { digitalFiles: true } } } },
+      affiliate: true,
+      customer: { select: { email: true } },
+    },
   });
   if (!order) throw new Error(`Order ${orderId} not found.`);
   if (order.status === "PAID") return; // idempotent — webhooks can retry/duplicate
@@ -69,6 +75,20 @@ export async function markOrderPaid(orderId: string, providerPaymentId: string) 
     ...(order.couponId
       ? [db.coupon.update({ where: { id: order.couponId }, data: { redemptionCount: { increment: 1 } } })]
       : []),
+    ...(order.affiliate
+      ? [
+          db.affiliateReferral.create({
+            data: {
+              affiliateId: order.affiliate.id,
+              orderId: order.id,
+              commissionAmountMinor: calculateCommissionMinor(
+                order.totalAmountMinor,
+                order.affiliate.commissionBps,
+              ),
+            },
+          }),
+        ]
+      : []),
     db.analyticsEvent.create({
       data: { creatorProfileId: order.creatorProfileId, type: "ORDER_COMPLETED", orderId: order.id },
     }),
@@ -81,6 +101,11 @@ export async function markOrderPaid(orderId: string, providerPaymentId: string) 
       },
     }),
   ]);
+
+  await runAutomations(order.creatorProfileId, "ORDER_PAID", {
+    customerId: order.customerId,
+    customerEmail: order.customer.email,
+  });
 }
 
 export async function markOrderFailed(orderId: string) {
@@ -90,5 +115,8 @@ export async function markOrderFailed(orderId: string) {
   await db.$transaction([
     db.order.update({ where: { id: orderId }, data: { status: "FAILED" } }),
     db.payment.update({ where: { orderId }, data: { status: "FAILED" } }),
+    // A booking hold for an order that never got paid was never a real
+    // confirmation anyone saw — delete it outright to free the calendar slot.
+    db.booking.deleteMany({ where: { orderId } }),
   ]);
 }

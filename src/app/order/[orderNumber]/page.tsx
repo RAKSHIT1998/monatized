@@ -6,7 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Download, CheckCircle2, XCircle, Clock, GraduationCap } from "lucide-react";
+import { Download, CheckCircle2, XCircle, Clock, GraduationCap, CalendarCheck } from "lucide-react";
 import { OrderStatusPoller } from "./order-status-poller";
 
 export const metadata: Metadata = {
@@ -27,6 +27,7 @@ export default async function OrderPage({
       creatorProfile: true,
       downloadGrants: { include: { digitalProductFile: true } },
       courseEnrollment: { include: { product: true } },
+      booking: { include: { product: true } },
       coupon: true,
     },
   });
@@ -108,6 +109,31 @@ export default async function OrderPage({
               </Link>
               <p className="text-xs text-muted-foreground">
                 Bookmark this link — it&apos;s how you&apos;ll come back to your course.
+              </p>
+            </div>
+          )}
+
+          {order.status === "PAID" && order.booking && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">Your booking</p>
+              <div className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                <CalendarCheck className="size-4 shrink-0" />
+                {order.booking.startsAt.toLocaleString(undefined, {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </div>
+              <Link
+                href={`/booking/${order.booking.accessToken}`}
+                className={cn(buttonVariants({ variant: "outline" }), "justify-start")}
+              >
+                View or cancel this booking
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Bookmark this link — it&apos;s how you&apos;ll come back to your booking.
               </p>
             </div>
           )}

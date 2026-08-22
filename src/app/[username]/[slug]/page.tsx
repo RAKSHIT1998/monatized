@@ -114,12 +114,22 @@ export default async function ProductPage({
         </div>
       )}
 
+      {product.type === "BOOKING" && product.bookingDurationMinutes && (
+        <p className="text-sm text-muted-foreground">
+          {product.bookingDurationMinutes}-minute session
+        </p>
+      )}
+
       <Link
         href={`/${username}/${slug}/checkout`}
         className={cn(buttonVariants({ size: "lg" }), "w-full text-white")}
         style={{ backgroundColor: accent }}
       >
-        {product.type === "SUBSCRIPTION" ? "Subscribe" : "Buy now"}
+        {product.type === "SUBSCRIPTION"
+          ? "Subscribe"
+          : product.type === "BOOKING"
+            ? "Book a time"
+            : "Buy now"}
       </Link>
     </div>
   );
