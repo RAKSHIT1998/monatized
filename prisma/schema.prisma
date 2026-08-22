@@ -1,0 +1,429 @@
+// Monetized — Phase 1 (MVP) data model.
+// Only entities actually used by Phase 1 features are defined here.
+// Courses, bookings, subscriptions, memberships, community, affiliates and
+// automations are Phase 2/3 and will be added in their own migrations.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  CREATOR
+}
+
+enum PlanKey {
+  FREE
+  CREATOR
+  PRO
+  BUSINESS
+}
+
+enum ProductType {
+  DIGITAL
+  COURSE
+  SUBSCRIPTION
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE // created, first payment not yet confirmed
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  MOCK
+  RAZORPAY
+  STRIPE
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum AnalyticsEventType {
+  STORE_VIEW
+  PRODUCT_VIEW
+  CHECKOUT_STARTED
+  ORDER_COMPLETED
+}
+
+enum CouponDiscountType {
+  PERCENT
+  FIXED
+}
+
+enum LessonContentType {
+  VIDEO
+  TEXT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(CREATOR)
+  // Bumping this invalidates every previously-issued session JWT for the user
+  // (used on password change / logout-everywhere) without needing a session table.
+  tokenVersion Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  creatorProfile CreatorProfile?
+  auditLogs      AuditLog[]
+}
+
+model Plan {
+  id                String   @id @default(cuid())
+  key               PlanKey  @unique
+  name              String
+  priceMonthlyMinor Int
+  currency          String   @default("INR")
+  productLimit      Int? // null = unlimited
+  removesBranding   Boolean  @default(false)
+  platformFeeBps    Int      @default(0) // platform fee in basis points, charged per order
+  features          Json     @default("[]")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  creatorProfiles CreatorProfile[]
+}
+
+model CreatorProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  username           String   @unique
+  displayName        String
+  bio                String?
+  avatarUrl          String?
+  coverImageUrl      String?
+  categories         String[] @default([]) // what they're trying to monetize, from onboarding
+  socialLinks        Json     @default("{}")
+  onboardingStep     Int      @default(0)
+  onboardingComplete Boolean  @default(false)
+  planId             String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            Plan             @relation(fields: [planId], references: [id])
+  theme           StoreTheme?
+  products        Product[]
+  customers       Customer[]
+  orders          Order[]
+  coupons         Coupon[]
+  subscriptions   Subscription[]
+  analyticsEvents AnalyticsEvent[]
+}
+
+model StoreTheme {
+  id               String   @id @default(cuid())
+  creatorProfileId String   @unique
+  templateKey      String   @default("minimal")
+  primaryColor     String   @default("#111111")
+  backgroundColor  String   @default("#ffffff")
+  buttonStyle      String   @default("solid")
+  layout           Json     @default("[]") // ordered link-in-bio block list
+  updatedAt        DateTime @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id               String           @id @default(cuid())
+  creatorProfileId String
+  type             ProductType      @default(DIGITAL)
+  title            String
+  slug             String
+  description      String?
+  priceAmountMinor Int
+  currency         String           @default("INR")
+  billingInterval  BillingInterval? // only set for SUBSCRIPTION products
+  coverImageUrl    String?
+  status           ProductStatus    @default(DRAFT)
+  position         Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  creatorProfile  CreatorProfile       @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  digitalFiles    DigitalProductFile[]
+  modules         CourseModule[]
+  enrollments     CourseEnrollment[]
+  subscriptions   Subscription[]
+  orderItems      OrderItem[]
+  downloadGrants  DownloadGrant[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@unique([creatorProfileId, slug])
+}
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  productId String
+  title     String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lessons CourseLesson[]
+}
+
+model CourseLesson {
+  id          String            @id @default(cuid())
+  moduleId    String
+  title       String
+  position    Int               @default(0)
+  contentType LessonContentType @default(TEXT)
+  videoUrl    String?
+  textContent String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  module      CourseModule       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  completions LessonCompletion[]
+}
+
+// Grants ongoing access to a purchased course via a bookmarkable link — there's
+// no customer login system (checkout is guest/email-only), so this token is the
+// buyer's only way back in. Long-lived by design, unlike a DownloadGrant.
+model CourseEnrollment {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  productId   String
+  customerId  String
+  accessToken String   @unique
+  createdAt   DateTime @default(now())
+
+  order       Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product            @relation(fields: [productId], references: [id])
+  customer    Customer           @relation(fields: [customerId], references: [id])
+  completions LessonCompletion[]
+}
+
+model LessonCompletion {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  completedAt  DateTime @default(now())
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     CourseLesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+}
+
+model DigitalProductFile {
+  id            String   @id @default(cuid())
+  productId     String
+  fileName      String
+  storageKey    String
+  fileSizeBytes Int
+  mimeType      String
+  createdAt     DateTime @default(now())
+
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  downloadGrants DownloadGrant[]
+}
+
+model Customer {
+  id               String   @id @default(cuid())
+  creatorProfileId String
+  email            String
+  name             String?
+  phone            String?
+  tags             String[] @default([])
+  notes            String?
+  totalSpentMinor  Int      @default(0)
+  ordersCount      Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  creatorProfile    CreatorProfile     @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  orders            Order[]
+  courseEnrollments CourseEnrollment[]
+  subscriptions     Subscription[]
+
+  @@unique([creatorProfileId, email])
+}
+
+model Order {
+  id                     String      @id @default(cuid())
+  orderNumber            String      @unique
+  creatorProfileId       String
+  customerId             String
+  couponId               String?
+  subscriptionId         String? // set for both the first charge and every renewal of a subscription
+  status                 OrderStatus @default(PENDING)
+  currency               String      @default("INR")
+  subtotalAmountMinor    Int
+  discountAmountMinor    Int         @default(0)
+  totalAmountMinor       Int
+  platformFeeAmountMinor Int         @default(0)
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  creatorProfile   CreatorProfile    @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  coupon           Coupon?           @relation(fields: [couponId], references: [id])
+  subscription     Subscription?     @relation(fields: [subscriptionId], references: [id])
+  items            OrderItem[]
+  payment          Payment?
+  downloadGrants   DownloadGrant[]
+  courseEnrollment CourseEnrollment?
+  analyticsEvents  AnalyticsEvent[]
+
+  @@index([creatorProfileId, status, createdAt])
+}
+
+// The ongoing relationship for a recurring product. Each billing cycle (the
+// first charge and every renewal) creates its own PAID Order — Subscription
+// just tracks status/renewal date/provider IDs, so revenue reporting keeps
+// working against Order without a parallel ledger.
+model Subscription {
+  id                     String             @id @default(cuid())
+  creatorProfileId       String
+  productId              String
+  customerId             String
+  status                 SubscriptionStatus @default(INCOMPLETE)
+  provider               PaymentProvider
+  providerSubscriptionId String?
+  accessToken            String             @unique
+  // Locked in at signup so a later price change never silently reprices an
+  // existing subscriber — every cycle (first charge and renewals) bills this.
+  unitAmountMinor        Int
+  currency               String
+  billingInterval        BillingInterval
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id])
+  customer       Customer       @relation(fields: [customerId], references: [id])
+  orders         Order[]
+}
+
+model Coupon {
+  id               String             @id @default(cuid())
+  creatorProfileId String
+  code             String // stored uppercase
+  discountType     CouponDiscountType
+  discountValue    Int // PERCENT: 1-100. FIXED: minor units.
+  maxRedemptions   Int? // null = unlimited
+  redemptionCount  Int                @default(0)
+  expiresAt        DateTime?
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  orders         Order[]
+
+  @@unique([creatorProfileId, code])
+}
+
+model OrderItem {
+  id                       String @id @default(cuid())
+  orderId                  String
+  productId                String
+  titleSnapshot            String
+  priceAmountMinorSnapshot Int
+  quantity                 Int    @default(1)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  orderId           String          @unique
+  provider          PaymentProvider
+  providerOrderId   String?
+  providerPaymentId String?
+  status            PaymentStatus   @default(CREATED)
+  amountMinor       Int
+  currency          String
+  rawPayload        Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// Secure, expiring, download-limited access to a purchased digital file.
+model DownloadGrant {
+  id                   String   @id @default(cuid())
+  orderId              String
+  productId            String
+  digitalProductFileId String
+  token                String   @unique
+  downloadsUsed        Int      @default(0)
+  downloadLimit        Int      @default(5)
+  expiresAt            DateTime
+  createdAt            DateTime @default(now())
+
+  order              Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product            Product            @relation(fields: [productId], references: [id])
+  digitalProductFile DigitalProductFile @relation(fields: [digitalProductFileId], references: [id])
+}
+
+model AnalyticsEvent {
+  id               String             @id @default(cuid())
+  creatorProfileId String
+  type             AnalyticsEventType
+  productId        String?
+  orderId          String?
+  metadata         Json?
+  createdAt        DateTime           @default(now())
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  product        Product?       @relation(fields: [productId], references: [id])
+  order          Order?         @relation(fields: [orderId], references: [id])
+
+  @@index([creatorProfileId, type, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id])
+}

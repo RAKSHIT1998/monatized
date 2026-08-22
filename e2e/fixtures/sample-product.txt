@@ -1,0 +1,1 @@
+This is a sample digital product file used by Playwright E2E tests.
