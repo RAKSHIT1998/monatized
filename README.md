@@ -1,11 +1,11 @@
 # Monetized
 
-**Turn your audience into a business.** A creator-commerce platform — storefront,
-checkout, and instant digital delivery — inspired by the business model of
-Stan Store, Gumroad, and similar link-in-bio commerce tools. This repo started
-as the **Phase 1 (MVP) foundation** and is now growing into Phase 2: it does
-not clone anyone's branding or code, and it only claims features that actually
-work end to end.
+**Turn your audience into a business.** A full creator-commerce platform —
+storefront, checkout, digital delivery, courses, subscriptions, bookings,
+community, affiliates, automations, email, an AI growth engine, and custom
+domains — inspired by the business model of Stan Store, Gumroad, and similar
+link-in-bio commerce tools. It does not clone anyone's branding or code, and
+it only claims features that actually work end to end.
 
 ## What's built
 
@@ -68,16 +68,77 @@ work end to end.
   lifecycle (activate/renew/mark past-due) via clearly-labeled dev-only
   buttons on the member page, exactly like the one-time mock checkout.
 
-Bookings, memberships, community, affiliates, automations, the AI growth
-engine, and the mobile app are still **out of scope** — see the phased
-roadmap this project followed (Phase 2/3/4) before building any of those on
-top of this foundation.
+- **Bookings** *(Phase 3)* — a fourth product type for 1:1 sessions. Creators
+  set weekly availability windows (day + start/end time, all in **UTC** — see
+  Known items) and a session length; buyers pick an open slot at checkout. A
+  slot is reserved the moment checkout starts via a DB-level unique constraint
+  on `(productId, startsAt)`, so two buyers can never win the same time even
+  under concurrent checkouts; if the payment then fails or the checkout is
+  abandoned, the hold is deleted outright and the slot reopens. Access is a
+  bookmarkable `/booking/[accessToken]` link where either side can cancel — a
+  cancellation after a real payment is a soft-cancel (the record stays visible
+  for history) rather than a slot-freeing delete, a deliberate, narrower scope
+  than the abandoned-checkout case.
+- **Community / memberships** *(Phase 3)* — creators publish posts (optionally
+  members-only) from `/dashboard/community`; access is gated on having an
+  ACTIVE/PAST_DUE subscription to the creator, checked at the same
+  `/member/[accessToken]` identity subscriptions already use — no new login
+  system. Members can comment; creators can reply and moderate (delete)
+  comments.
+- **Affiliates** *(Phase 3)* — partners get a `?ref=CODE` link and a
+  bookmarkable `/affiliate/[accessToken]` stats page. The referral cookie is
+  set by `proxy.ts` on any storefront visit (30-day attribution window) and
+  resolved against a real, active `Affiliate` row at checkout-start — captured
+  on the `Order` itself, the same pattern coupons already use, so webhooks
+  never need to re-derive attribution. Commission is a running ledger
+  (`AffiliateReferral`, credited in `markOrderPaid`) — **actual payout to the
+  affiliate is a manual step outside this app**, the same posture as not
+  faking payment success anywhere else here.
+- **Automations** *(Phase 3)* — simple `when X, then Y` rules: trigger on an
+  order being paid, a new subscriber, or a cancelled subscription; action is
+  either tagging the customer or sending them an email. Failures are caught
+  and logged, never allowed to break the payment/subscription flow that
+  triggered them.
+- **Email campaigns** *(Phase 3)* — one-off emails to all customers or active
+  subscribers only, via an `EmailProvider` abstraction: `console` (default,
+  logs + records an `EmailLog`, delivers nothing — dev/demo only) or `resend`
+  (real delivery, called directly over `fetch` rather than adding their SDK).
+  Sending is synchronous — fine at demo/small-list scale; a real production
+  version would hand this to a background queue.
+- **AI growth engine** *(Phase 4)* — two honestly-scoped pieces, not one fake
+  "AI does everything" black box: (1) **Insights** are rule-based heuristics
+  computed from the creator's own numbers (revenue concentration, past-due
+  subscribers, checkout conversion, repeat-customer rate) — explainable, not
+  generated. (2) A **product description writer** goes through an `AiProvider`
+  abstraction: `template` (default, deterministic text, no external call) or
+  `anthropic` (real generation via the official `@anthropic-ai/sdk`, model
+  `claude-opus-5`).
+- **Custom domains** *(Phase 4)* — connect a domain, verify ownership via a
+  DNS TXT record (a real `dns.resolveTxt` lookup, never faked), then it serves
+  the exact same storefront/product/checkout pages as `monetized.com/{username}`
+  would. Routing works by having the Edge-safe `proxy.ts` rewrite unverified
+  hosts to an internal `/_sites/[domain]/...` path — it does no DB lookup
+  itself (can't; Prisma's driver adapter needs Node, not the Edge runtime) —
+  where a normal server component resolves the domain against the
+  `CustomDomain` table and renders. Verifying proves ownership; actually
+  routing traffic here still requires the creator's own DNS (CNAME/A record)
+  pointed at wherever this app is deployed, same as any real custom-domain
+  product.
+- **Installable app (PWA)** — a web manifest + minimal service worker make
+  the dashboard installable from a browser's "Add to Home Screen" / install
+  prompt. This is the honest equivalent of "the mobile app" achievable from a
+  single Next.js codebase with no native build pipeline — not an App
+  Store/Play Store binary, which would need a separate React Native project
+  and its own submission process. The service worker only caches static,
+  content-hashed assets and only registers in production, specifically so it
+  never risks serving stale dashboard data or interfering with local dev.
 
 ## Stack
 
 Next.js 16 (App Router, Turbopack) · TypeScript · Tailwind CSS v4 · shadcn/ui
 (on Base UI, not Radix) · PostgreSQL + Prisma 7 (driver adapters, no Rust
-engine) · Playwright (E2E) · Vitest (unit).
+engine) · Playwright (E2E) · Vitest (unit) · `@anthropic-ai/sdk` (optional AI
+provider).
 
 ## Getting started
 
@@ -108,14 +169,21 @@ a working local-dev default. Notably:
   fill in the matching keys to take real payments.
 - `STORAGE_DRIVER=local` (default) — uploads land in `./storage/` on disk.
   Dev-only; set to `s3` with an S3-compatible bucket for anything persistent.
+- `EMAIL_PROVIDER=console` (default) — campaigns/automation emails are logged
+  and recorded, never delivered. Set to `resend` and fill in `RESEND_API_KEY`
+  to actually send.
+- `AI_PROVIDER=template` (default) — the growth engine's description writer
+  uses deterministic, rule-based text, no key needed. Set to `anthropic` and
+  fill in `ANTHROPIC_API_KEY` to generate with Claude instead.
 
 ## Testing
 
 ```bash
-npx vitest run          # unit tests — pure logic (validation schemas, money formatting)
+npx vitest run          # unit tests — pure logic (validation schemas, money formatting,
+                         # booking slot math, growth insights, host matching)
 npx playwright install chromium   # first time only
-npx playwright test     # end-to-end — signup through onboarding, products,
-                         # storefront, checkout, analytics, admin
+npx playwright test     # end-to-end — one spec per feature area, from signup/
+                         # onboarding through every feature listed above
 ```
 
 The E2E suite runs against `npm run dev` (Turbopack). In this sandbox, the
@@ -141,21 +209,47 @@ runner with a fast disk.
   button" in this app therefore uses `buttonVariants()` applied directly to a
   real `<Link>`/`<a>` instead of `<Button render={<Link />}>`, to keep the
   correct implicit `link` accessibility role.
+- Booking availability is UTC-only — there's no per-creator timezone setting
+  yet, so times entered in the availability editor are exactly what buyers see.
+- A booking cancelled *after* a real payment (by either side) is a soft-cancel;
+  unlike an abandoned/failed checkout's hold, that exact slot isn't
+  automatically reopened for someone else to book. Documented scope choice,
+  same posture as the two items below.
+- Custom-domain URLs still include the platform username segment (e.g.
+  `yourdomain.com/{username}/{slug}`) — the `_sites/[domain]/...` routes reuse
+  the exact same storefront/product/checkout page components verbatim rather
+  than duplicating them, which keeps the URL shape consistent with
+  `monetized.com/{username}/{slug}` at the cost of one redundant segment.
+  Cosmetic only; nothing depends on it being shorter.
+- Verifying a custom domain proves ownership (a real DNS TXT lookup) — it does
+  not by itself route traffic here. Actually reaching the storefront over that
+  domain still requires the creator's own DNS (CNAME/A record) pointed at
+  wherever this app is deployed.
+- Coupons and affiliate attribution apply to one-time Digital/Course/Booking
+  checkouts only, not Subscriptions — same scope boundary in both cases,
+  since subscription billing cycles are created outside the normal
+  checkout-time Order flow (see `recordBillingCycle` in `src/lib/subscriptions.ts`).
 
 ## Project structure
 
 ```
-prisma/schema.prisma       Phase 1 data model (only what's actually used)
+prisma/schema.prisma       Data model — one migration per feature area in prisma/migrations
 prisma/seed.ts             Pricing plans + dev admin user
-src/lib/                   Framework-agnostic logic: auth, payments abstraction,
-                            storage abstraction, validation schemas, orders
+src/lib/                   Framework-agnostic logic: auth, payments/email/AI provider
+                            abstractions, storage abstraction, validation schemas, orders
 src/app/actions/           Server actions (mutations)
 src/app/(auth)/            Login / signup
 src/app/onboarding/        Creator onboarding wizard
-src/app/dashboard/         Creator app (products, orders, customers, analytics,
+src/app/dashboard/         Creator app (products, orders, customers, analytics, coupons,
+                            community, affiliates, campaigns, automations, domain, growth,
                             store editor, billing)
 src/app/admin/             Platform admin
 src/app/[username]/        Public storefront + product pages + checkout
+src/app/_sites/            Custom-domain routes — reuse the [username] pages verbatim
+src/app/member/            Subscriber membership page + gated community feed
+src/app/booking/           Buyer-facing booking confirmation/cancellation
+src/app/affiliate/         Affiliate self-service stats page
 src/app/api/               Download delivery, public asset serving, payment webhooks
-e2e/                       Playwright end-to-end specs
+src/proxy.ts               Auth gating + affiliate ref-cookie capture + custom-domain rewrite
+e2e/                       Playwright end-to-end specs, one per feature area
 ```

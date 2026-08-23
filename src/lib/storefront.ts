@@ -17,6 +17,15 @@ export async function getPublicStoreByUsername(username: string) {
   return profile;
 }
 
+/** Resolves a verified custom domain to the creator's platform username. */
+export async function resolveUsernameFromDomain(domain: string): Promise<string | null> {
+  const record = await db.customDomain.findFirst({
+    where: { domain, status: "VERIFIED" },
+    select: { creatorProfile: { select: { username: true } } },
+  });
+  return record?.creatorProfile.username ?? null;
+}
+
 export async function recordStoreView(creatorProfileId: string, productId?: string) {
   try {
     await db.analyticsEvent.create({

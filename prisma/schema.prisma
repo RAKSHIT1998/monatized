@@ -122,6 +122,12 @@ enum AutomationActionType {
   SEND_EMAIL
 }
 
+enum CustomDomainStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -184,6 +190,24 @@ model CreatorProfile {
   affiliates      Affiliate[]
   campaigns       Campaign[]
   automations     Automation[]
+  customDomain    CustomDomain?
+}
+
+// One custom domain per creator. Verification proves domain ownership (a DNS
+// TXT record matching verificationToken) — it does not by itself make the
+// domain resolve here; that's a normal DNS CNAME/A-record step on the
+// creator's end, pointed at wherever this app is deployed. See README.
+model CustomDomain {
+  id                String             @id @default(cuid())
+  creatorProfileId  String             @unique
+  domain            String             @unique
+  verificationToken String             @unique
+  status            CustomDomainStatus @default(PENDING)
+  verifiedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
 }
 
 // A trigger→action rule. actionConfig shape depends on actionType:

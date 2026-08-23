@@ -24,6 +24,14 @@ const RESERVED_USERNAMES = new Set([
   "app",
   "static",
   "monetized",
+  // Real top-level routes added since — each is a bookmarkable-link
+  // namespace (learn/member/booking/affiliate) or internal routing (sites),
+  // so a creator claiming the same name as their username would collide.
+  "learn",
+  "member",
+  "booking",
+  "affiliate",
+  "sites",
 ]);
 
 export function slugifyUsername(input: string) {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu, ExternalLink } from "lucide-react";
 import { DashboardNav } from "./dashboard-nav";
 import { UserMenu } from "./user-menu";
+import { PwaInstall } from "@/components/pwa-install";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
@@ -55,6 +56,8 @@ export function DashboardShell({ displayName, username, planName, children }: Da
             View store
             <ExternalLink className="size-3.5" />
           </a>
+
+          <PwaInstall />
 
           <UserMenu displayName={displayName} />
         </header>

@@ -1,0 +1,14 @@
+{
+  "name": "Monetized",
+  "short_name": "Monetized",
+  "description": "Turn your audience into a business — storefront, checkout, and instant delivery.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111111",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

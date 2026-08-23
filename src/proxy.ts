@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSession, SESSION_COOKIE_NAME } from "@/lib/session";
 import { REF_COOKIE_MAX_AGE_SECONDS, REF_COOKIE_NAME } from "@/lib/affiliate-constants";
+import { isOwnHost } from "@/lib/host-matching";
 
 const AUTH_ONLY_ROUTES = ["/login", "/signup"];
 const PROTECTED_PREFIXES = ["/dashboard", "/admin", "/onboarding"];
@@ -15,7 +16,18 @@ export default async function proxy(request: NextRequest) {
   let response: NextResponse;
 
   if (!isProtected && !isAuthOnly) {
-    response = NextResponse.next();
+    const host = request.headers.get("host");
+    if (host && !isOwnHost(host, process.env.APP_URL) && !pathname.startsWith("/sites/")) {
+      // Strip the port — a real custom domain is only ever reached over 80/443
+      // (never present in Host there), but local dev/testing always hits a
+      // non-standard port, and CustomDomain.domain is stored bare either way.
+      const bareHost = host.split(":")[0];
+      const url = request.nextUrl.clone();
+      url.pathname = `/sites/${bareHost}${pathname}`;
+      response = NextResponse.rewrite(url);
+    } else {
+      response = NextResponse.next();
+    }
   } else {
     const session = await decryptSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 

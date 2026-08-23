@@ -21,6 +21,15 @@ export const metadata: Metadata = {
   },
   description:
     "Sell products, courses, memberships, coaching and more from one creator storefront.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+};
+
+export const viewport = {
+  themeColor: "#111111",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

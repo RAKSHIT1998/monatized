@@ -16,6 +16,8 @@ import {
   Handshake,
   Mail,
   Zap,
+  Globe,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +29,8 @@ export const DASHBOARD_NAV_ITEMS = [
   { href: "/dashboard/affiliates", label: "Affiliates", icon: Handshake },
   { href: "/dashboard/campaigns", label: "Email", icon: Mail },
   { href: "/dashboard/automations", label: "Automations", icon: Zap },
+  { href: "/dashboard/domain", label: "Domain", icon: Globe },
+  { href: "/dashboard/growth", label: "Growth engine", icon: Sparkles },
   { href: "/dashboard/orders", label: "Orders", icon: ShoppingBag },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
