@@ -72,7 +72,7 @@ export default async function CouponsPage() {
                         {coupon.maxRedemptions !== null ? ` / ${coupon.maxRedemptions}` : ""}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {coupon.expiresAt ? coupon.expiresAt.toLocaleDateString() : "Never"}
+                        {coupon.expiresAt ? coupon.expiresAt.toLocaleDateString("en-IN") : "Never"}
                       </TableCell>
                       <TableCell>
                         <CouponRowActions couponId={coupon.id} isActive={coupon.isActive} />

@@ -69,7 +69,7 @@ export default async function MemberCommunityPage({
               <CardHeader>
                 <CardTitle>{post.title}</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  {post.createdAt.toLocaleDateString()}
+                  {post.createdAt.toLocaleDateString("en-IN")}
                 </p>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">

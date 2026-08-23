@@ -45,7 +45,7 @@ export default async function CustomersPage() {
                 notes: customer.notes,
                 ordersCount: customer.ordersCount,
                 totalSpentLabel: formatMoney(customer.totalSpentMinor, currency),
-                since: customer.createdAt.toLocaleDateString(),
+                since: customer.createdAt.toLocaleDateString("en-IN"),
               }))}
             />
           </CardContent>

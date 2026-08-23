@@ -41,7 +41,7 @@ export default async function BookingPage({
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">When</span>
             <span className="text-sm font-medium">
-              {booking.startsAt.toLocaleString(undefined, {
+              {booking.startsAt.toLocaleString("en-IN", {
                 weekday: "short",
                 month: "short",
                 day: "numeric",

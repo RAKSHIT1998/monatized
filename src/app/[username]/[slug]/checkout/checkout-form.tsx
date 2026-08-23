@@ -48,9 +48,13 @@ export function CheckoutForm({
       ? `Pay ${couponPreview.totalLabel}`
       : `Pay ${amountLabel}`;
 
+  // Explicit locale throughout this component's date/time formatting — this
+  // is a Client Component rendered on both server and client, and an
+  // implicit locale can format differently in each, causing a hydration
+  // mismatch that tears down and rebuilds the tree mid-interaction.
   const slotsByDay = new Map<string, string[]>();
   for (const iso of slots) {
-    const dayKey = new Date(iso).toLocaleDateString(undefined, {
+    const dayKey = new Date(iso).toLocaleDateString("en-IN", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -91,7 +95,7 @@ export function CheckoutForm({
                                 : "hover:bg-muted"
                             }`}
                           >
-                            {new Date(iso).toLocaleTimeString(undefined, {
+                            {new Date(iso).toLocaleTimeString("en-IN", {
                               hour: "numeric",
                               minute: "2-digit",
                             })}

@@ -72,7 +72,7 @@ export default async function OrdersPage() {
                       <Badge variant={STATUS_VARIANT[order.status]}>{order.status}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {order.createdAt.toLocaleDateString()}
+                      {order.createdAt.toLocaleDateString("en-IN")}
                     </TableCell>
                   </TableRow>
                 ))}

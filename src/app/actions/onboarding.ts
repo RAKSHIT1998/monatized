@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireCreator } from "@/lib/dal";
@@ -87,6 +86,11 @@ export async function saveUsername(
   return { success: true };
 }
 
+// Deliberately doesn't redirect() here — this is called directly (not via a
+// <form action>) from a client component wrapped in try/catch, and
+// redirect()'s internal throw would be swallowed by that catch and shown as
+// a spurious error even though the redirect had already gone through. The
+// caller navigates itself after a successful await instead.
 export async function launchStore() {
   const user = await requireCreator();
 
@@ -104,6 +108,4 @@ export async function launchStore() {
       },
     }),
   ]);
-
-  redirect("/dashboard");
 }

@@ -59,7 +59,7 @@ export default async function AdminCreatorsPage() {
                   <TableCell>{creator._count.orders}</TableCell>
                   <TableCell>{creator.onboardingComplete ? "Yes" : "No"}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {creator.createdAt.toLocaleDateString()}
+                    {creator.createdAt.toLocaleDateString("en-IN")}
                   </TableCell>
                 </TableRow>
               ))}

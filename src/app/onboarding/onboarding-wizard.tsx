@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { launchStore, saveBusinessBasics, saveUsername } from "@/app/actions/onboarding";
 import { Button } from "@/components/ui/button";
@@ -243,6 +244,7 @@ function ReviewLaunchStep({
   onBack: () => void;
 }) {
   const [pending, setPending] = useState(false);
+  const router = useRouter();
   const activeCategoryLabels = MONETIZATION_CATEGORIES.filter(
     (c) => categories.includes(c.value) && c.active,
   ).map((c) => c.label);
@@ -276,6 +278,7 @@ function ReviewLaunchStep({
               setPending(true);
               try {
                 await launchStore();
+                router.push("/dashboard");
               } catch {
                 setPending(false);
                 toast.error("Couldn't launch your store. Please try again.");

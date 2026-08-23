@@ -80,8 +80,13 @@ function SubscriberRowItem({ subscriber }: { subscriber: SubscriberRow }) {
           {subscriber.cancelAtPeriodEnd ? "Cancelling" : subscriber.status}
         </Badge>
       </TableCell>
+      {/* Explicit locale — Client Component, rendered on both server and client;
+          an implicit locale can format differently in each and trigger a
+          hydration mismatch (see posts-list.tsx for the observed failure mode). */}
       <TableCell className="text-muted-foreground">
-        {subscriber.currentPeriodEnd ? new Date(subscriber.currentPeriodEnd).toLocaleDateString() : "—"}
+        {subscriber.currentPeriodEnd
+          ? new Date(subscriber.currentPeriodEnd).toLocaleDateString("en-IN")
+          : "—"}
       </TableCell>
       <TableCell>
         {cancellable && !subscriber.cancelAtPeriodEnd && (

@@ -64,8 +64,11 @@ function BookingRowItem({ booking }: { booking: BookingRow }) {
   return (
     <TableRow>
       <TableCell>{booking.email}</TableCell>
+      {/* Explicit locale — Client Component, rendered on both server and client;
+          an implicit locale can format differently in each and trigger a
+          hydration mismatch (see posts-list.tsx for the observed failure mode). */}
       <TableCell className="text-muted-foreground">
-        {new Date(booking.startsAt).toLocaleString(undefined, {
+        {new Date(booking.startsAt).toLocaleString("en-IN", {
           month: "short",
           day: "numeric",
           hour: "numeric",

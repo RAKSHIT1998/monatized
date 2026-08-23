@@ -73,7 +73,7 @@ export default async function MemberPage({
                 {subscription.cancelAtPeriodEnd ? "Access ends" : "Renews"}
               </span>
               <span className="text-sm font-medium">
-                {subscription.currentPeriodEnd.toLocaleDateString()}
+                {subscription.currentPeriodEnd.toLocaleDateString("en-IN")}
               </span>
             </div>
           )}

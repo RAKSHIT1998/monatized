@@ -83,8 +83,12 @@ function PostCard({ post }: { post: PostRow }) {
             <Badge variant={post.membersOnly ? "default" : "secondary"}>
               {post.membersOnly ? "Members only" : "Public"}
             </Badge>
+            {/* Explicit locale — this is a Client Component, so it's rendered on both
+                server and client; an implicit locale can format differently in each,
+                causing a hydration mismatch that tears down and rebuilds this tree
+                mid-interaction (observed: it swallowed a reply-comment click). */}
             <span className="text-xs text-muted-foreground">
-              {new Date(post.createdAt).toLocaleDateString()}
+              {new Date(post.createdAt).toLocaleDateString("en-IN")}
             </span>
           </div>
         </div>

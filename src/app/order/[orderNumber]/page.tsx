@@ -118,7 +118,7 @@ export default async function OrderPage({
               <p className="text-sm font-medium">Your booking</p>
               <div className="flex items-center gap-2 rounded-lg border p-3 text-sm">
                 <CalendarCheck className="size-4 shrink-0" />
-                {order.booking.startsAt.toLocaleString(undefined, {
+                {order.booking.startsAt.toLocaleString("en-IN", {
                   weekday: "short",
                   month: "short",
                   day: "numeric",
