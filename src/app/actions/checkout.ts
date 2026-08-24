@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import * as z from "zod";
 import { db } from "@/lib/db";
 import { findActiveAffiliateByCode } from "@/lib/affiliates";
 import { REF_COOKIE_NAME } from "@/lib/affiliate-constants";
@@ -16,8 +17,9 @@ import {
   generateSubscriptionAccessToken,
 } from "@/lib/subscriptions";
 import { generateBookingAccessToken } from "@/lib/bookings";
-import { startCheckoutSchema } from "@/lib/validation/checkout";
+import { startCheckoutSchema, shippingAddressSchema, tipAmountSchema } from "@/lib/validation/checkout";
 import { bookingSlotSelectionSchema } from "@/lib/validation/booking";
+import { toMinorUnits } from "@/lib/money";
 import type { Product } from "@/generated/prisma/client";
 
 export type CheckoutFormState =
@@ -30,6 +32,12 @@ export type CheckoutFormState =
 function getAppUrl() {
   return process.env.APP_URL ?? "http://localhost:3000";
 }
+
+// Thrown from inside the checkout $transaction when a PHYSICAL product's
+// limited stock ran out between page load and submit — caught below and
+// turned into a friendly message, the same pattern used for a booking slot
+// that got taken by someone else in the meantime.
+class OutOfStockError extends Error {}
 
 export async function startCheckout(
   _prevState: CheckoutFormState,
@@ -93,6 +101,40 @@ export async function startCheckout(
     };
   }
 
+  let shippingAddress: z.infer<typeof shippingAddressSchema> | null = null;
+  if (product.type === "PHYSICAL") {
+    if (product.stockQuantity !== null && product.stockQuantity <= 0) {
+      return { message: "This item is sold out." };
+    }
+    const shippingValidation = shippingAddressSchema.safeParse({
+      name: formData.get("shippingName"),
+      line1: formData.get("shippingLine1"),
+      line2: formData.get("shippingLine2"),
+      city: formData.get("shippingCity"),
+      state: formData.get("shippingState"),
+      postalCode: formData.get("shippingPostalCode"),
+      country: formData.get("shippingCountry"),
+    });
+    if (!shippingValidation.success) {
+      return { errors: shippingValidation.error.flatten().fieldErrors };
+    }
+    shippingAddress = shippingValidation.data;
+  }
+
+  let buyerNote: string | undefined;
+  let tipAmountMinor: number | null = null;
+  if (product.type === "TIP") {
+    const tipValidation = tipAmountSchema.safeParse(formData.get("tipAmount"));
+    if (!tipValidation.success) {
+      return { errors: { tipAmount: tipValidation.error.flatten().formErrors } };
+    }
+    tipAmountMinor = toMinorUnits(tipValidation.data);
+    const note = formData.get("buyerNote");
+    if (typeof note === "string" && note.trim()) {
+      buyerNote = note.trim().slice(0, 500);
+    }
+  }
+
   let coupon = null;
   if (couponCode) {
     const result = await lookupValidCoupon(product.creatorProfileId, couponCode);
@@ -107,7 +149,7 @@ export async function startCheckout(
   const refCode = (await cookies()).get(REF_COOKIE_NAME)?.value;
   const affiliate = refCode ? await findActiveAffiliateByCode(product.creatorProfileId, refCode) : null;
 
-  const subtotalAmountMinor = product.priceAmountMinor;
+  const subtotalAmountMinor = tipAmountMinor ?? product.priceAmountMinor;
   const discountAmountMinor = coupon ? calculateDiscountMinor(subtotalAmountMinor, coupon) : 0;
   const totalAmountMinor = subtotalAmountMinor - discountAmountMinor;
   const platformFeeAmountMinor = Math.round(
@@ -130,11 +172,13 @@ export async function startCheckout(
           discountAmountMinor,
           totalAmountMinor,
           platformFeeAmountMinor,
+          shippingAddress: shippingAddress ?? undefined,
+          buyerNote,
           items: {
             create: {
               productId: product.id,
               titleSnapshot: product.title,
-              priceAmountMinorSnapshot: product.priceAmountMinor,
+              priceAmountMinorSnapshot: tipAmountMinor ?? product.priceAmountMinor,
             },
           },
           payment: {
@@ -164,6 +208,20 @@ export async function startCheckout(
         });
       }
 
+      // Same pattern as the booking slot reservation above: decrement stock
+      // right away, guarded by the `gt: 0` condition so two concurrent buyers
+      // can never both win the last unit. A failed/abandoned checkout later
+      // restores it via markOrderFailed.
+      if (product.type === "PHYSICAL" && product.stockQuantity !== null) {
+        const stockResult = await tx.product.updateMany({
+          where: { id: product.id, stockQuantity: { gt: 0 } },
+          data: { stockQuantity: { decrement: 1 } },
+        });
+        if (stockResult.count === 0) {
+          throw new OutOfStockError();
+        }
+      }
+
       await tx.analyticsEvent.create({
         data: {
           creatorProfileId: product.creatorProfileId,
@@ -176,6 +234,9 @@ export async function startCheckout(
       return created;
     });
   } catch (error) {
+    if (error instanceof OutOfStockError) {
+      return { message: "This item just sold out." };
+    }
     if (
       bookingSlot &&
       typeof error === "object" &&

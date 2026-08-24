@@ -51,12 +51,14 @@ export function EditProductForm({ product }: { product: Product }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="priceAmount">Price (INR)</Label>
+              <Label htmlFor="priceAmount">
+                {product.type === "TIP" ? "Suggested amount (INR)" : "Price (INR)"}
+              </Label>
               <Input
                 id="priceAmount"
                 name="priceAmount"
                 type="number"
-                min="0"
+                min={product.type === "TIP" ? "1" : "0"}
                 step="0.01"
                 defaultValue={product.priceAmountMinor / 100}
               />
@@ -64,6 +66,23 @@ export function EditProductForm({ product }: { product: Product }) {
                 <p className="text-sm text-destructive">{state.errors.priceAmount[0]}</p>
               )}
             </div>
+            {product.type === "PHYSICAL" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="stockQuantity">Stock (optional)</Label>
+                <Input
+                  id="stockQuantity"
+                  name="stockQuantity"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Unlimited"
+                  defaultValue={product.stockQuantity ?? ""}
+                />
+                {state?.errors?.stockQuantity && (
+                  <p className="text-sm text-destructive">{state.errors.stockQuantity[0]}</p>
+                )}
+              </div>
+            )}
             {product.type === "SUBSCRIPTION" && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="billingInterval">Billing</Label>

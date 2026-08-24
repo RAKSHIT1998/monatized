@@ -32,9 +32,13 @@ export async function markOrderPaid(orderId: string, providerPaymentId: string) 
   if (order.status === "PAID") return; // idempotent — webhooks can retry/duplicate
 
   const expiresAt = new Date(Date.now() + DOWNLOAD_LINK_LIFETIME_MS);
+  const hasPhysicalItem = order.items.some((item) => item.product.type === "PHYSICAL");
 
   await db.$transaction([
-    db.order.update({ where: { id: orderId }, data: { status: "PAID" } }),
+    db.order.update({
+      where: { id: orderId },
+      data: { status: "PAID", ...(hasPhysicalItem ? { fulfillmentStatus: "UNFULFILLED" } : {}) },
+    }),
     db.payment.update({
       where: { orderId },
       data: { status: "SUCCEEDED", providerPaymentId },
@@ -109,8 +113,17 @@ export async function markOrderPaid(orderId: string, providerPaymentId: string) 
 }
 
 export async function markOrderFailed(orderId: string) {
-  const order = await db.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: { status: true, items: { include: { product: { select: { id: true, type: true, stockQuantity: true } } } } },
+  });
   if (!order || order.status === "PAID") return; // never regress a completed order
+
+  // Mirror image of the optimistic decrement in startCheckout — an order that
+  // never got paid never actually took the unit, so give it back.
+  const physicalItemsWithLimitedStock = order.items.filter(
+    (item) => item.product.type === "PHYSICAL" && item.product.stockQuantity !== null,
+  );
 
   await db.$transaction([
     db.order.update({ where: { id: orderId }, data: { status: "FAILED" } }),
@@ -118,5 +131,11 @@ export async function markOrderFailed(orderId: string) {
     // A booking hold for an order that never got paid was never a real
     // confirmation anyone saw — delete it outright to free the calendar slot.
     db.booking.deleteMany({ where: { orderId } }),
+    ...physicalItemsWithLimitedStock.map((item) =>
+      db.product.update({
+        where: { id: item.product.id },
+        data: { stockQuantity: { increment: item.quantity } },
+      }),
+    ),
   ]);
 }

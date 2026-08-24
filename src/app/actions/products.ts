@@ -9,7 +9,7 @@ import { getStorageDriver, buildProductFileKey, buildPublicAssetKey, assetKeyToU
 import { generateUniqueProductSlug } from "@/lib/slug";
 import { checkProductLimit } from "@/lib/plan-limits";
 import { toMinorUnits } from "@/lib/money";
-import { MAX_PRODUCT_FILE_BYTES, productDetailsSchema } from "@/lib/validation/product";
+import { MAX_PRODUCT_FILE_BYTES, productDetailsSchema, stockQuantitySchema } from "@/lib/validation/product";
 import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_FILE_BYTES } from "@/lib/validation/store";
 import { bookingDurationSchema } from "@/lib/validation/booking";
 
@@ -48,7 +48,11 @@ export async function createProduct(
         ? "SUBSCRIPTION"
         : rawType === "BOOKING"
           ? "BOOKING"
-          : "DIGITAL";
+          : rawType === "PHYSICAL"
+            ? "PHYSICAL"
+            : rawType === "TIP"
+              ? "TIP"
+              : "DIGITAL";
 
   const validatedFields = productDetailsSchema.safeParse({
     title: formData.get("title"),
@@ -82,7 +86,20 @@ export async function createProduct(
     bookingDurationMinutes = durationValidation.data;
   }
 
+  let stockQuantity: number | null = null;
+  if (type === "PHYSICAL") {
+    const stockValidation = stockQuantitySchema.safeParse(formData.get("stockQuantity"));
+    if (!stockValidation.success) {
+      return { errors: { stockQuantity: stockValidation.error.flatten().formErrors } };
+    }
+    stockQuantity = stockValidation.data;
+  }
+
   const { title, description, priceAmount } = validatedFields.data;
+  if (type === "TIP" && priceAmount <= 0) {
+    return { errors: { priceAmount: ["Set a suggested amount greater than zero."] } };
+  }
+
   const slug = await generateUniqueProductSlug(creatorProfileId, title);
 
   const product = await db.product.create({
@@ -95,6 +112,7 @@ export async function createProduct(
       priceAmountMinor: toMinorUnits(priceAmount),
       billingInterval: type === "SUBSCRIPTION" ? billingInterval : null,
       bookingDurationMinutes,
+      stockQuantity,
       status: "DRAFT",
     },
   });
@@ -139,6 +157,9 @@ export async function updateProductDetails(
   }
 
   const { title, description, priceAmount } = validatedFields.data;
+  if (product.type === "TIP" && priceAmount <= 0) {
+    return { errors: { priceAmount: ["Set a suggested amount greater than zero."] } };
+  }
   const billingInterval = formData.get("billingInterval");
 
   let bookingDurationMinutes: number | undefined;
@@ -148,6 +169,15 @@ export async function updateProductDetails(
       return { errors: { bookingDurationMinutes: durationValidation.error.flatten().formErrors } };
     }
     bookingDurationMinutes = durationValidation.data;
+  }
+
+  let stockQuantity: number | null | undefined;
+  if (product.type === "PHYSICAL") {
+    const stockValidation = stockQuantitySchema.safeParse(formData.get("stockQuantity"));
+    if (!stockValidation.success) {
+      return { errors: { stockQuantity: stockValidation.error.flatten().formErrors } };
+    }
+    stockQuantity = stockValidation.data;
   }
 
   await db.product.update({
@@ -160,6 +190,7 @@ export async function updateProductDetails(
         ? { billingInterval }
         : {}),
       ...(bookingDurationMinutes !== undefined ? { bookingDurationMinutes } : {}),
+      ...(stockQuantity !== undefined ? { stockQuantity } : {}),
     },
   });
 

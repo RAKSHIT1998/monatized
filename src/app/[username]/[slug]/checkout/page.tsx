@@ -26,6 +26,17 @@ export default async function CheckoutPage({
   const product = await getCheckoutProduct(username, slug);
   if (!product) notFound();
 
+  const isSoldOut =
+    product.type === "PHYSICAL" && product.stockQuantity !== null && product.stockQuantity <= 0;
+  if (isSoldOut) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+        <p className="text-lg font-medium">This item is sold out.</p>
+        <p className="text-sm text-muted-foreground">Check back later — it might restock.</p>
+      </div>
+    );
+  }
+
   const slots =
     product.type === "BOOKING" ? await getAvailableSlotsForProduct(product.id) : [];
 
@@ -52,6 +63,7 @@ export default async function CheckoutPage({
           <p className="text-sm text-muted-foreground">by {product.creatorProfile.displayName}</p>
         </div>
         <p className="shrink-0 font-medium">
+          {product.type === "TIP" && "From "}
           {formatMoney(product.priceAmountMinor, product.currency)}
           {product.type === "SUBSCRIPTION" && (
             <span className="text-xs font-normal text-muted-foreground">
@@ -66,8 +78,12 @@ export default async function CheckoutPage({
         slug={slug}
         isSubscription={product.type === "SUBSCRIPTION"}
         isBooking={product.type === "BOOKING"}
+        isPhysical={product.type === "PHYSICAL"}
+        isTip={product.type === "TIP"}
         slots={slots.map((slot) => slot.toISOString())}
         amountLabel={formatMoney(product.priceAmountMinor, product.currency)}
+        suggestedTipAmount={product.type === "TIP" ? product.priceAmountMinor / 100 : undefined}
+        currency={product.currency}
       />
     </div>
   );

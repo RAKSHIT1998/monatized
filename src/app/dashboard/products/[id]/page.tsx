@@ -10,6 +10,7 @@ import { CourseCurriculum } from "./course-curriculum";
 import { SubscribersPanel } from "./subscribers-panel";
 import { AvailabilityPanel } from "./availability-panel";
 import { BookingsPanel } from "./bookings-panel";
+import { TipsPanel } from "./tips-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
@@ -41,6 +42,11 @@ export default async function EditProductPage({
         where: { order: { status: "PAID" } },
         orderBy: { startsAt: "desc" },
         include: { customer: { select: { email: true } } },
+      },
+      orderItems: {
+        where: { order: { status: "PAID" } },
+        orderBy: { order: { createdAt: "desc" } },
+        include: { order: { include: { customer: { select: { email: true } } } } },
       },
       _count: { select: { orderItems: true } },
     },
@@ -118,6 +124,25 @@ export default async function EditProductPage({
             </CardContent>
           </Card>
         </>
+      )}
+      {product.type === "TIP" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tips received</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <TipsPanel
+              tips={product.orderItems.map((item) => ({
+                id: item.id,
+                email: item.order.customer.email,
+                amountMinor: item.priceAmountMinorSnapshot,
+                currency: product.currency,
+                buyerNote: item.order.buyerNote,
+                createdAt: item.order.createdAt.toISOString(),
+              }))}
+            />
+          </CardContent>
+        </Card>
       )}
     </div>
   );

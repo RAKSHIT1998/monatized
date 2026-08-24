@@ -2,10 +2,11 @@
 
 **Turn your audience into a business.** A full creator-commerce platform —
 storefront, checkout, digital delivery, courses, subscriptions, bookings,
-community, affiliates, automations, email, an AI growth engine, and custom
-domains — inspired by the business model of Stan Store, Gumroad, and similar
-link-in-bio commerce tools. It does not clone anyone's branding or code, and
-it only claims features that actually work end to end.
+physical products, tips, community, affiliates, automations, email, an AI
+growth engine, and custom domains — inspired by the business model of Stan
+Store, Gumroad, and similar link-in-bio commerce tools. It does not clone
+anyone's branding or code, and it only claims features that actually work end
+to end.
 
 ## What's built
 
@@ -117,13 +118,28 @@ it only claims features that actually work end to end.
   DNS TXT record (a real `dns.resolveTxt` lookup, never faked), then it serves
   the exact same storefront/product/checkout pages as `monetized.com/{username}`
   would. Routing works by having the Edge-safe `proxy.ts` rewrite unverified
-  hosts to an internal `/_sites/[domain]/...` path — it does no DB lookup
+  hosts to an internal `/sites/[domain]/...` path — it does no DB lookup
   itself (can't; Prisma's driver adapter needs Node, not the Edge runtime) —
   where a normal server component resolves the domain against the
   `CustomDomain` table and renders. Verifying proves ownership; actually
   routing traffic here still requires the creator's own DNS (CNAME/A record)
   pointed at wherever this app is deployed, same as any real custom-domain
   product.
+- **Physical products** *(Phase 5)* — a fifth product type for shippable
+  goods. An optional stock count (blank = unlimited) is decremented atomically
+  at checkout — guarded by a conditional `UPDATE ... WHERE stockQuantity > 0`
+  so two concurrent buyers can never both win the last unit, the same
+  optimistic-reservation pattern bookings use for slots — and restored if the
+  order later fails, the same as an abandoned booking hold freeing its slot.
+  Checkout collects a shipping address (stored on the `Order`); creators mark
+  orders shipped with an optional tracking number from `/dashboard/orders`,
+  which the buyer then sees on their receipt.
+- **Tips & donations** *(Phase 5)* — a sixth product type for one-off
+  supporter tips. The creator's price is a *suggested* amount only (chip
+  presets at 1×/2×/5×), never an enforced minimum — a buyer can also enter any
+  custom amount above a ₹1 floor. Buyers can leave an optional message, shown
+  to the creator on the product's "Tips received" panel alongside every
+  supporter's amount.
 - **Installable app (PWA)** — a web manifest + minimal service worker make
   the dashboard installable from a browser's "Add to Home Screen" / install
   prompt. This is the honest equivalent of "the mobile app" achievable from a
@@ -216,7 +232,7 @@ runner with a fast disk.
   automatically reopened for someone else to book. Documented scope choice,
   same posture as the two items below.
 - Custom-domain URLs still include the platform username segment (e.g.
-  `yourdomain.com/{username}/{slug}`) — the `_sites/[domain]/...` routes reuse
+  `yourdomain.com/{username}/{slug}`) — the `sites/[domain]/...` routes reuse
   the exact same storefront/product/checkout page components verbatim rather
   than duplicating them, which keeps the URL shape consistent with
   `monetized.com/{username}/{slug}` at the cost of one redundant segment.
@@ -225,10 +241,12 @@ runner with a fast disk.
   not by itself route traffic here. Actually reaching the storefront over that
   domain still requires the creator's own DNS (CNAME/A record) pointed at
   wherever this app is deployed.
-- Coupons and affiliate attribution apply to one-time Digital/Course/Booking
-  checkouts only, not Subscriptions — same scope boundary in both cases,
-  since subscription billing cycles are created outside the normal
-  checkout-time Order flow (see `recordBillingCycle` in `src/lib/subscriptions.ts`).
+- Coupons and affiliate attribution apply to one-time Digital/Course/Booking/
+  Physical checkouts only, not Subscriptions or Tips — for Subscriptions,
+  because billing cycles are created outside the normal checkout-time Order
+  flow (see `recordBillingCycle` in `src/lib/subscriptions.ts`); for Tips,
+  because the price is buyer-chosen, so a percent/fixed discount off a
+  creator-set price doesn't apply.
 
 ## Project structure
 
@@ -245,11 +263,11 @@ src/app/dashboard/         Creator app (products, orders, customers, analytics, 
                             store editor, billing)
 src/app/admin/             Platform admin
 src/app/[username]/        Public storefront + product pages + checkout
-src/app/_sites/            Custom-domain routes — reuse the [username] pages verbatim
+src/app/sites/             Custom-domain routes — reuse the [username] pages verbatim
 src/app/member/            Subscriber membership page + gated community feed
 src/app/booking/           Buyer-facing booking confirmation/cancellation
 src/app/affiliate/         Affiliate self-service stats page
-src/app/api/               Download delivery, public asset serving, payment webhooks
+src/app/api/               Download delivery, public asset serving, payment webhooks, order CSV export
 src/proxy.ts               Auth gating + affiliate ref-cookie capture + custom-domain rewrite
 e2e/                       Playwright end-to-end specs, one per feature area
 ```

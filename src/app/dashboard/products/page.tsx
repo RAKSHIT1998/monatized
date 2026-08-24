@@ -27,6 +27,15 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
   ARCHIVED: "outline",
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  COURSE: "Course",
+  SUBSCRIPTION: "Subscription",
+  BOOKING: "Booking",
+  PHYSICAL: "Physical",
+  TIP: "Tip jar",
+  DIGITAL: "Digital",
+};
+
 export default async function ProductsPage() {
   const user = await requireOnboardedCreator();
 
@@ -101,20 +110,13 @@ export default async function ProductsPage() {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">
-                        {product.type === "COURSE"
-                          ? "Course"
-                          : product.type === "SUBSCRIPTION"
-                            ? "Subscription"
-                            : product.type === "BOOKING"
-                              ? "Booking"
-                              : "Digital"}
-                      </Badge>
+                      <Badge variant="outline">{TYPE_LABEL[product.type]}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[product.status]}>{product.status}</Badge>
                     </TableCell>
                     <TableCell>
+                      {product.type === "TIP" && "From "}
                       {formatMoney(product.priceAmountMinor, product.currency)}
                       {product.type === "SUBSCRIPTION" &&
                         `/${product.billingInterval === "MONTHLY" ? "mo" : "yr"}`}
@@ -128,6 +130,10 @@ export default async function ProductsPage() {
                         `${product._count.subscriptions} subscriber${product._count.subscriptions === 1 ? "" : "s"}`}
                       {product.type === "BOOKING" &&
                         `${product._count.bookings} booking${product._count.bookings === 1 ? "" : "s"}`}
+                      {product.type === "PHYSICAL" &&
+                        (product.stockQuantity === null ? "Unlimited stock" : `${product.stockQuantity} in stock`)}
+                      {product.type === "TIP" &&
+                        `${product._count.orderItems} tip${product._count.orderItems === 1 ? "" : "s"}`}
                     </TableCell>
                     <TableCell>{product._count.orderItems}</TableCell>
                   </TableRow>

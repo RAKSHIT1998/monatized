@@ -121,7 +121,11 @@ export default async function StorefrontPage({
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{product.title}</p>
                 <p className="text-sm text-muted-foreground">
+                  {product.type === "TIP" && "From "}
                   {formatMoney(product.priceAmountMinor, product.currency)}
+                  {product.type === "PHYSICAL" && product.stockQuantity === 0 && (
+                    <span className="ml-1.5 text-destructive">Sold out</span>
+                  )}
                 </p>
               </div>
               <span

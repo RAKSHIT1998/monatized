@@ -7,6 +7,8 @@ const PRODUCT_TYPE_LABEL: Record<GenerateProductDescriptionParams["productType"]
   COURSE: "an online course",
   SUBSCRIPTION: "a recurring membership",
   BOOKING: "a bookable 1:1 session",
+  PHYSICAL: "a shippable physical product",
+  TIP: "a tip jar for one-off supporter donations",
 };
 
 export class AnthropicAiProvider implements AiProvider {

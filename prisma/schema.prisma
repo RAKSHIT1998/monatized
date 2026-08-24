@@ -27,6 +27,14 @@ enum ProductType {
   COURSE
   SUBSCRIPTION
   BOOKING
+  PHYSICAL
+  TIP
+}
+
+enum FulfillmentStatus {
+  NOT_APPLICABLE // not a physical order — nothing to ship
+  UNFULFILLED
+  SHIPPED
 }
 
 enum BillingInterval {
@@ -353,6 +361,9 @@ model Product {
   // only set for BOOKING products. All availability rules and slot math are in UTC
   // for MVP simplicity — see README "Known items" before relying on this across timezones.
   bookingDurationMinutes Int?
+  // only set for PHYSICAL products. Null = unlimited stock. Decremented
+  // atomically at checkout (see startCheckout) and restored if the order fails.
+  stockQuantity          Int?
   coverImageUrl          String?
   status                 ProductStatus    @default(DRAFT)
   position               Int              @default(0)
@@ -515,6 +526,15 @@ model Order {
   discountAmountMinor    Int         @default(0)
   totalAmountMinor       Int
   platformFeeAmountMinor Int         @default(0)
+  // Physical fulfillment — only meaningful when the order contains a PHYSICAL
+  // item (see markOrderPaid). shippingAddress shape: { name, line1, line2?,
+  // city, state, postalCode, country }.
+  fulfillmentStatus      FulfillmentStatus @default(NOT_APPLICABLE)
+  shippingAddress        Json?
+  trackingNumber         String?
+  shippedAt              DateTime?
+  // Optional supporter message, collected at checkout for TIP orders only.
+  buyerNote              String?
   createdAt              DateTime    @default(now())
   updatedAt              DateTime    @updatedAt
 

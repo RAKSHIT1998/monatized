@@ -53,6 +53,12 @@ export default async function ProductPage({
   await recordStoreView(product.creatorProfileId, product.id);
 
   const accent = product.creatorProfile.theme?.primaryColor ?? "#111111";
+  const isSoldOut = product.type === "PHYSICAL" && product.stockQuantity !== null && product.stockQuantity <= 0;
+  const isLowStock =
+    product.type === "PHYSICAL" &&
+    product.stockQuantity !== null &&
+    product.stockQuantity > 0 &&
+    product.stockQuantity <= 5;
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-lg flex-col gap-6 px-4 py-12">
@@ -82,6 +88,7 @@ export default async function ProductPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{product.title}</h1>
         <p className="mt-1 text-lg font-medium">
+          {product.type === "TIP" && "From "}
           {formatMoney(product.priceAmountMinor, product.currency)}
           {product.type === "SUBSCRIPTION" && (
             <span className="text-sm font-normal text-muted-foreground">
@@ -90,6 +97,12 @@ export default async function ProductPage({
             </span>
           )}
         </p>
+        {isSoldOut && (
+          <p className="mt-1 text-sm font-medium text-destructive">Sold out</p>
+        )}
+        {isLowStock && (
+          <p className="mt-1 text-sm font-medium text-amber-600">Only {product.stockQuantity} left</p>
+        )}
       </div>
 
       {product.description && (
@@ -120,17 +133,27 @@ export default async function ProductPage({
         </p>
       )}
 
-      <Link
-        href={`/${username}/${slug}/checkout`}
-        className={cn(buttonVariants({ size: "lg" }), "w-full text-white")}
-        style={{ backgroundColor: accent }}
-      >
-        {product.type === "SUBSCRIPTION"
-          ? "Subscribe"
-          : product.type === "BOOKING"
-            ? "Book a time"
-            : "Buy now"}
-      </Link>
+      {isSoldOut ? (
+        <span
+          className={cn(buttonVariants({ size: "lg", variant: "outline" }), "w-full cursor-not-allowed opacity-60")}
+        >
+          Sold out
+        </span>
+      ) : (
+        <Link
+          href={`/${username}/${slug}/checkout`}
+          className={cn(buttonVariants({ size: "lg" }), "w-full text-white")}
+          style={{ backgroundColor: accent }}
+        >
+          {product.type === "SUBSCRIPTION"
+            ? "Subscribe"
+            : product.type === "BOOKING"
+              ? "Book a time"
+              : product.type === "TIP"
+                ? "Give a tip"
+                : "Buy now"}
+        </Link>
+      )}
     </div>
   );
 }

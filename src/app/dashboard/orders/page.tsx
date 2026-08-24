@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -12,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FulfillmentCell } from "./fulfillment-cell";
+import { Download } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Orders — Monetized",
@@ -36,9 +40,17 @@ export default async function OrdersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
-        <p className="text-sm text-muted-foreground">Every checkout attempt on your store.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
+          <p className="text-sm text-muted-foreground">Every checkout attempt on your store.</p>
+        </div>
+        {orders.length > 0 && (
+          <Link href="/api/export/orders" className={buttonVariants({ variant: "outline" })}>
+            <Download className="size-4" />
+            Export CSV
+          </Link>
+        )}
       </div>
 
       {orders.length === 0 ? (
@@ -58,6 +70,7 @@ export default async function OrdersPage() {
                   <TableHead>Item</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Fulfillment</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
@@ -70,6 +83,13 @@ export default async function OrdersPage() {
                     <TableCell>{formatMoney(order.totalAmountMinor, order.currency)}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[order.status]}>{order.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <FulfillmentCell
+                        orderId={order.id}
+                        fulfillmentStatus={order.fulfillmentStatus}
+                        trackingNumber={order.trackingNumber}
+                      />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {order.createdAt.toLocaleDateString("en-IN")}

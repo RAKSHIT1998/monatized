@@ -6,6 +6,8 @@ const OPENERS: Record<GenerateProductDescriptionParams["productType"], string> =
   COURSE: "Learn exactly how with",
   SUBSCRIPTION: "Join",
   BOOKING: "Book time with me:",
+  PHYSICAL: "Get your hands on",
+  TIP: "Support my work with",
 };
 
 const CLOSERS: Record<GenerateProductDescriptionParams["productType"], string> = {
@@ -13,6 +15,8 @@ const CLOSERS: Record<GenerateProductDescriptionParams["productType"], string> =
   COURSE: "Go at your own pace, revisit lessons anytime.",
   SUBSCRIPTION: "Cancel anytime, no questions asked.",
   BOOKING: "Pick a time that works for you and let's get started.",
+  PHYSICAL: "Shipped straight to your door.",
+  TIP: "Every bit helps me keep making this — thank you.",
 };
 
 // Deterministic, rule-based text — no external API call, so this always

@@ -9,13 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-type ProductKind = "DIGITAL" | "COURSE" | "SUBSCRIPTION" | "BOOKING";
+type ProductKind = "DIGITAL" | "COURSE" | "SUBSCRIPTION" | "BOOKING" | "PHYSICAL" | "TIP";
 
 const KIND_NOUN: Record<ProductKind, string> = {
   DIGITAL: "product",
   COURSE: "course",
   SUBSCRIPTION: "subscription",
   BOOKING: "booking type",
+  PHYSICAL: "product",
+  TIP: "tip jar",
 };
 
 export function NewProductForm() {
@@ -38,13 +40,15 @@ export function NewProductForm() {
 
           <div className="flex flex-col gap-2">
             <Label>What are you selling?</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {(
                 [
                   ["DIGITAL", "Digital product", "A file customers download"],
                   ["COURSE", "Course", "Modules and lessons"],
                   ["SUBSCRIPTION", "Subscription", "Recurring monthly/yearly"],
                   ["BOOKING", "Booking", "1:1 sessions on your calendar"],
+                  ["PHYSICAL", "Physical product", "A shippable item you mail out"],
+                  ["TIP", "Tip jar", "Let supporters give any amount"],
                 ] as const
               ).map(([value, label, hint]) => (
                 <button
@@ -75,7 +79,11 @@ export function NewProductForm() {
                     ? "VIP Membership"
                     : type === "BOOKING"
                       ? "1:1 Strategy Call"
-                      : "30-Day Fitness Plan"
+                      : type === "PHYSICAL"
+                        ? "Enamel Pin Set"
+                        : type === "TIP"
+                          ? "Buy me a coffee"
+                          : "30-Day Fitness Plan"
               }
             />
             {state?.errors?.title && (
@@ -98,19 +106,37 @@ export function NewProductForm() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="priceAmount">Price (INR)</Label>
+              <Label htmlFor="priceAmount">
+                {type === "TIP" ? "Suggested amount (INR)" : "Price (INR)"}
+              </Label>
               <Input
                 id="priceAmount"
                 name="priceAmount"
                 type="number"
-                min="0"
+                min={type === "TIP" ? "1" : "0"}
                 step="0.01"
-                placeholder="499"
+                placeholder={type === "TIP" ? "100" : "499"}
               />
               {state?.errors?.priceAmount && (
                 <p className="text-sm text-destructive">{state.errors.priceAmount[0]}</p>
               )}
             </div>
+            {type === "PHYSICAL" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="stockQuantity">Stock (optional)</Label>
+                <Input
+                  id="stockQuantity"
+                  name="stockQuantity"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Unlimited"
+                />
+                {state?.errors?.stockQuantity && (
+                  <p className="text-sm text-destructive">{state.errors.stockQuantity[0]}</p>
+                )}
+              </div>
+            )}
             {type === "SUBSCRIPTION" && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="billingIntervalSelect">Billing</Label>
@@ -165,6 +191,17 @@ export function NewProductForm() {
           {type === "BOOKING" && (
             <p className="text-sm text-muted-foreground">
               You&apos;ll set your weekly availability (in UTC) after creating this booking type.
+            </p>
+          )}
+          {type === "PHYSICAL" && (
+            <p className="text-sm text-muted-foreground">
+              Buyers enter a shipping address at checkout. Mark orders shipped from your Orders page.
+            </p>
+          )}
+          {type === "TIP" && (
+            <p className="text-sm text-muted-foreground">
+              Supporters can pick a preset amount or enter their own — the amount above is just a
+              suggestion, not a minimum.
             </p>
           )}
 

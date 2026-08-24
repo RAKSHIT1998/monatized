@@ -1,6 +1,6 @@
 export type GenerateProductDescriptionParams = {
   title: string;
-  productType: "DIGITAL" | "COURSE" | "SUBSCRIPTION" | "BOOKING";
+  productType: "DIGITAL" | "COURSE" | "SUBSCRIPTION" | "BOOKING" | "PHYSICAL" | "TIP";
   priceLabel: string;
 };
 

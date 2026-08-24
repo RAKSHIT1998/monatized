@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productDetailsSchema } from "./product";
+import { productDetailsSchema, stockQuantitySchema } from "./product";
 
 describe("productDetailsSchema", () => {
   it("accepts a valid product and coerces price to a number", () => {
@@ -32,5 +32,36 @@ describe("productDetailsSchema", () => {
   it("makes description optional", () => {
     const result = productDetailsSchema.safeParse({ title: "No description", priceAmount: "10" });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("stockQuantitySchema", () => {
+  it("treats a blank string as unlimited stock (null)", () => {
+    const result = stockQuantitySchema.safeParse("");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBeNull();
+  });
+
+  it("treats a missing field as unlimited stock (null)", () => {
+    const result = stockQuantitySchema.safeParse(undefined);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBeNull();
+  });
+
+  it("coerces a numeric string to a number", () => {
+    const result = stockQuantitySchema.safeParse("25");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBe(25);
+  });
+
+  it("rejects a negative stock count", () => {
+    const result = stockQuantitySchema.safeParse("-1");
+    expect(result.success).toBe(false);
+  });
+
+  it("allows zero (a product that is currently sold out)", () => {
+    const result = stockQuantitySchema.safeParse("0");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBe(0);
   });
 });

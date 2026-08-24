@@ -12,3 +12,14 @@ export const productDetailsSchema = z.object({
 export type ProductDetailsInput = z.infer<typeof productDetailsSchema>;
 
 export const MAX_PRODUCT_FILE_BYTES = 500 * 1024 * 1024; // 500MB
+
+// Blank/omitted means unlimited stock — only coerce+validate when a value was
+// actually entered.
+export const stockQuantitySchema = z
+  .union([
+    z.null(),
+    z.undefined(),
+    z.literal(""),
+    z.coerce.number().int().min(0, "Stock can't be negative.").max(1_000_000),
+  ])
+  .transform((v) => (v === null || v === undefined || v === "" ? null : v));
