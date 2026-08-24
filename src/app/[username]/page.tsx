@@ -2,10 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPublicStoreByUsername, recordStoreView } from "@/lib/storefront";
+import { getPublicStoreByUsername, getRecentSalesCount, recordStoreView } from "@/lib/storefront";
 import { formatMoney } from "@/lib/money";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Flame } from "lucide-react";
 
 export async function generateMetadata({
   params,
@@ -44,7 +44,10 @@ export default async function StorefrontPage({
   const store = await getPublicStoreByUsername(username);
   if (!store) notFound();
 
-  await recordStoreView(store.id);
+  const [, recentSalesCount] = await Promise.all([
+    recordStoreView(store.id),
+    getRecentSalesCount(store.id),
+  ]);
 
   const accent = store.theme?.primaryColor ?? "#111111";
   const socialLinks = (store.socialLinks ?? {}) as Record<string, string>;
@@ -78,6 +81,12 @@ export default async function StorefrontPage({
                 </a>
               ) : null,
             )}
+          </div>
+        )}
+        {recentSalesCount !== null && (
+          <div className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs text-muted-foreground">
+            <Flame className="size-3.5" style={{ color: accent }} />
+            {recentSalesCount} sale{recentSalesCount === 1 ? "" : "s"} in the last 7 days
           </div>
         )}
       </div>

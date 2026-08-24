@@ -6,6 +6,7 @@ import { Menu, ExternalLink } from "lucide-react";
 import { DashboardNav } from "./dashboard-nav";
 import { UserMenu } from "./user-menu";
 import { PwaInstall } from "@/components/pwa-install";
+import { LiveSaleNotifier } from "@/components/dashboard/live-sale-notifier";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
@@ -21,6 +22,7 @@ export function DashboardShell({ displayName, username, planName, children }: Da
 
   return (
     <div className="flex min-h-screen">
+      <LiveSaleNotifier />
       <aside className="hidden w-60 shrink-0 flex-col border-r bg-neutral-50/50 p-4 md:flex dark:bg-neutral-950/50">
         <Link href="/dashboard" className="mb-6 px-2 text-lg font-semibold tracking-tight">
           Monetized

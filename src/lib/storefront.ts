@@ -26,6 +26,21 @@ export async function resolveUsernameFromDomain(domain: string): Promise<string 
   return record?.creatorProfile.username ?? null;
 }
 
+const RECENT_SALES_WINDOW_DAYS = 7;
+const RECENT_SALES_MIN_TO_SHOW = 3; // below this, a raw count reads as sparse rather than social proof
+
+/** Real recent-purchase count for a lightweight storefront social-proof badge — never fabricated. */
+export async function getRecentSalesCount(creatorProfileId: string): Promise<number | null> {
+  const since = new Date();
+  since.setDate(since.getDate() - RECENT_SALES_WINDOW_DAYS);
+
+  const count = await db.order.count({
+    where: { creatorProfileId, status: "PAID", createdAt: { gte: since } },
+  });
+
+  return count >= RECENT_SALES_MIN_TO_SHOW ? count : null;
+}
+
 export async function recordStoreView(creatorProfileId: string, productId?: string) {
   try {
     await db.analyticsEvent.create({
