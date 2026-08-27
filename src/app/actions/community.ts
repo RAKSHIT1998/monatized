@@ -109,4 +109,5 @@ export async function addCommentAsMember(accessToken: string, formData: FormData
     },
   });
   revalidatePath(`/member/${accessToken}/community`);
+  revalidatePath("/dashboard/community");
 }
