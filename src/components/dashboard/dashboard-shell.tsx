@@ -9,15 +9,17 @@ import { PwaInstall } from "@/components/pwa-install";
 import { LiveSaleNotifier } from "@/components/dashboard/live-sale-notifier";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import type { PlanKey } from "@/generated/prisma/client";
 
 type DashboardShellProps = {
   displayName: string;
   username: string;
   planName: string;
+  planKey: PlanKey;
   children: React.ReactNode;
 };
 
-export function DashboardShell({ displayName, username, planName, children }: DashboardShellProps) {
+export function DashboardShell({ displayName, username, planName, planKey, children }: DashboardShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -27,7 +29,7 @@ export function DashboardShell({ displayName, username, planName, children }: Da
         <Link href="/dashboard" className="mb-6 px-2 text-lg font-semibold tracking-tight">
           Monetized
         </Link>
-        <DashboardNav />
+        <DashboardNav planKey={planKey} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -72,7 +74,7 @@ export function DashboardShell({ displayName, username, planName, children }: Da
           <SheetHeader className="p-0">
             <SheetTitle>Monetized</SheetTitle>
           </SheetHeader>
-          <DashboardNav onNavigate={() => setMobileNavOpen(false)} />
+          <DashboardNav planKey={planKey} onNavigate={() => setMobileNavOpen(false)} />
         </SheetContent>
       </Sheet>
     </div>

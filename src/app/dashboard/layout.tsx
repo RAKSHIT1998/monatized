@@ -9,6 +9,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       displayName={user.creatorProfile.displayName}
       username={user.creatorProfile.username}
       planName={user.creatorProfile.plan.name}
+      planKey={user.creatorProfile.plan.key}
     >
       {children}
     </DashboardShell>

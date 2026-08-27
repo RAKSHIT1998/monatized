@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { db } from "@/lib/db";
+import { hasFeatureAccess, featureLabel, minPlanFor, planDisplayName } from "@/lib/plan-features";
+import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { DomainForm } from "./domain-form";
 
 export const metadata: Metadata = {
@@ -9,6 +11,18 @@ export const metadata: Metadata = {
 
 export default async function DomainPage() {
   const user = await requireOnboardedCreator();
+
+  if (!hasFeatureAccess(user.creatorProfile.plan.key, "CUSTOM_DOMAIN")) {
+    return (
+      <div className="flex flex-col gap-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Custom domain</h1>
+        <UpgradePrompt
+          feature={featureLabel("CUSTOM_DOMAIN")}
+          minPlanName={planDisplayName(minPlanFor("CUSTOM_DOMAIN"))}
+        />
+      </div>
+    );
+  }
 
   const record = await db.customDomain.findUnique({
     where: { creatorProfileId: user.creatorProfile.id },

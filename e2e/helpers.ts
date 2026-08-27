@@ -1,3 +1,5 @@
+import path from "node:path";
+import { execFileSync } from "node:child_process";
 import type { Page } from "@playwright/test";
 
 export async function signupAndOnboard(
@@ -21,4 +23,15 @@ export async function signupAndOnboard(
 
   await page.getByRole("button", { name: /launch my store/i }).click();
   await page.waitForURL(/\/dashboard$/);
+}
+
+// Moves a creator to the Pro plan directly in the DB — used by specs for
+// Pro-gated features (Automations, Custom domain, Growth engine), since
+// there's no self-serve upgrade flow to exercise instead.
+export function upgradeToPro(username: string) {
+  execFileSync(
+    process.execPath,
+    [require.resolve("tsx/cli"), path.join(__dirname, "fixtures", "upgrade-to-pro.ts"), username],
+    { stdio: "inherit" },
+  );
 }

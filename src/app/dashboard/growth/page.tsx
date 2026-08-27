@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { computeGrowthInsights } from "@/lib/growth-insights";
+import { hasFeatureAccess, featureLabel, minPlanFor, planDisplayName } from "@/lib/plan-features";
+import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Lightbulb } from "lucide-react";
@@ -14,6 +16,18 @@ export const metadata: Metadata = {
 export default async function GrowthPage() {
   const user = await requireOnboardedCreator();
   const creatorProfileId = user.creatorProfile.id;
+
+  if (!hasFeatureAccess(user.creatorProfile.plan.key, "GROWTH_ENGINE")) {
+    return (
+      <div className="flex flex-col gap-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Growth engine</h1>
+        <UpgradePrompt
+          feature={featureLabel("GROWTH_ENGINE")}
+          minPlanName={planDisplayName(minPlanFor("GROWTH_ENGINE"))}
+        />
+      </div>
+    );
+  }
 
   const [revenueByProduct, pastDueSubscriberCount, eventCounts, activeCouponCount, customers, products] =
     await Promise.all([

@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { signupAndOnboard } from "./helpers";
+import { signupAndOnboard, upgradeToPro } from "./helpers";
 
 test("creator sees growth insights and can generate a product description", async ({ page }) => {
   const email = `growth-${Date.now()}@example.com`;
   const username = `gr${Date.now()}`.slice(0, 20);
   await signupAndOnboard(page, { email, username });
+  upgradeToPro(username); // Growth engine is a Pro-plan feature
 
   await page.goto("/dashboard/products/new");
   await page.getByLabel("Title").fill("Notion Template");

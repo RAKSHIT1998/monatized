@@ -4,9 +4,13 @@ import { db } from "@/lib/db";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { getAiProvider } from "@/lib/ai";
 import { formatMoney } from "@/lib/money";
+import { hasFeatureAccess, featureUpgradeMessage } from "@/lib/plan-features";
 
 export async function generateProductDescription(productId: string): Promise<string> {
   const user = await requireOnboardedCreator();
+  if (!hasFeatureAccess(user.creatorProfile.plan.key, "GROWTH_ENGINE")) {
+    throw new Error(featureUpgradeMessage("GROWTH_ENGINE"));
+  }
   const product = await db.product.findUnique({ where: { id: productId } });
   if (!product || product.creatorProfileId !== user.creatorProfile.id) {
     throw new Error("Product not found.");

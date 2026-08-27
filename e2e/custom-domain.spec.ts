@@ -1,7 +1,7 @@
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { test, expect, chromium } from "@playwright/test";
-import { signupAndOnboard } from "./helpers";
+import { signupAndOnboard, upgradeToPro } from "./helpers";
 
 const APP_PORT = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3002").port || "3002";
 
@@ -42,6 +42,7 @@ test("creator can connect a custom domain and see an honest pending/failed verif
   const email = `domain-${Date.now()}@example.com`;
   const username = `dom${Date.now()}`.slice(0, 20);
   await signupAndOnboard(page, { email, username });
+  upgradeToPro(username); // Custom domains is a Pro-plan feature
 
   const domain = `${username}.example.test`;
   await page.goto("/dashboard/domain");
@@ -77,6 +78,7 @@ test("a verified custom domain serves the creator's real storefront and product 
   const email = `domain2-${Date.now()}@example.com`;
   const username = `dom2${Date.now()}`.slice(0, 20);
   await signupAndOnboard(page, { email, username });
+  upgradeToPro(username); // Custom domains is a Pro-plan feature
 
   await page.goto("/dashboard/products/new");
   await page.getByLabel("Title").fill("Domain Test Product");

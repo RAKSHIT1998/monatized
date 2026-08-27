@@ -35,6 +35,13 @@ to end.
   plan), all creators, all orders, and an editable plan/pricing table.
 - **Billing** — a creator-facing page showing their current plan, usage vs.
   limit, and the other available plans.
+- **Plan-tier feature gating** — Automations, the AI growth engine, and
+  custom domains are Pro-plan features (per the pricing table's own
+  marketing copy), enforced at both the page (a locked "Upgrade" state
+  instead of the feature) and the server action (the same check, so the
+  UI lock is never the only thing standing between a Free/Creator creator
+  and the feature). The sidebar nav shows a "PRO" badge next to each gated
+  section before a creator ever clicks in.
 - **Coupons** *(Phase 2)* — percent or fixed-amount discount codes, redemption
   limits, expiry dates; applied live at checkout (preview before paying) and
   redeemed only when the order is actually confirmed paid, never on checkout

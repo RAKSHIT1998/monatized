@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { automationSchema } from "@/lib/validation/automation";
+import { hasFeatureAccess, featureUpgradeMessage } from "@/lib/plan-features";
 
 export type AutomationFormState =
   | {
@@ -17,6 +18,9 @@ export async function createAutomation(
   formData: FormData,
 ): Promise<AutomationFormState> {
   const user = await requireOnboardedCreator();
+  if (!hasFeatureAccess(user.creatorProfile.plan.key, "AUTOMATIONS")) {
+    return { message: featureUpgradeMessage("AUTOMATIONS") };
+  }
 
   const validated = automationSchema.safeParse({
     trigger: formData.get("trigger"),

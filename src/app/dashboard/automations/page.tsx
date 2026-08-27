@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { db } from "@/lib/db";
+import { hasFeatureAccess, featureLabel, minPlanFor, planDisplayName } from "@/lib/plan-features";
+import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,6 +28,18 @@ const TRIGGER_LABEL: Record<string, string> = {
 
 export default async function AutomationsPage() {
   const user = await requireOnboardedCreator();
+
+  if (!hasFeatureAccess(user.creatorProfile.plan.key, "AUTOMATIONS")) {
+    return (
+      <div className="flex flex-col gap-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Automations</h1>
+        <UpgradePrompt
+          feature={featureLabel("AUTOMATIONS")}
+          minPlanName={planDisplayName(minPlanFor("AUTOMATIONS"))}
+        />
+      </div>
+    );
+  }
 
   const automations = await db.automation.findMany({
     where: { creatorProfileId: user.creatorProfile.id },

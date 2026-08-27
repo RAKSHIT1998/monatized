@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { generateDomainVerificationToken, verifyDomainOwnership } from "@/lib/domains";
 import { customDomainSchema } from "@/lib/validation/domain";
+import { hasFeatureAccess, featureUpgradeMessage } from "@/lib/plan-features";
 
 export type DomainFormState =
   | {
@@ -18,6 +19,9 @@ export async function setCustomDomain(
   formData: FormData,
 ): Promise<DomainFormState> {
   const user = await requireOnboardedCreator();
+  if (!hasFeatureAccess(user.creatorProfile.plan.key, "CUSTOM_DOMAIN")) {
+    return { message: featureUpgradeMessage("CUSTOM_DOMAIN") };
+  }
 
   const validated = customDomainSchema.safeParse({ domain: formData.get("domain") });
   if (!validated.success) {

@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { signupAndOnboard } from "./helpers";
+import { signupAndOnboard, upgradeToPro } from "./helpers";
 
 test("automation tags a customer automatically when their order is paid", async ({ page }) => {
   const email = `auto-${Date.now()}@example.com`;
   const username = `auto${Date.now()}`.slice(0, 20);
   await signupAndOnboard(page, { email, username });
+  upgradeToPro(username); // Automations is a Pro-plan feature
 
   await page.goto("/dashboard/automations");
   await page.getByLabel("When").selectOption("ORDER_PAID");

@@ -20,6 +20,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hasFeatureAccess } from "@/lib/plan-features";
+import type { PlanKey } from "@/generated/prisma/client";
+import type { GatedFeature } from "@/lib/plan-features";
 
 export const DASHBOARD_NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -28,18 +31,29 @@ export const DASHBOARD_NAV_ITEMS = [
   { href: "/dashboard/community", label: "Community", icon: MessagesSquare },
   { href: "/dashboard/affiliates", label: "Affiliates", icon: Handshake },
   { href: "/dashboard/campaigns", label: "Email", icon: Mail },
-  { href: "/dashboard/automations", label: "Automations", icon: Zap },
-  { href: "/dashboard/domain", label: "Domain", icon: Globe },
-  { href: "/dashboard/growth", label: "Growth engine", icon: Sparkles },
+  { href: "/dashboard/automations", label: "Automations", icon: Zap, feature: "AUTOMATIONS" },
+  { href: "/dashboard/domain", label: "Domain", icon: Globe, feature: "CUSTOM_DOMAIN" },
+  { href: "/dashboard/growth", label: "Growth engine", icon: Sparkles, feature: "GROWTH_ENGINE" },
   { href: "/dashboard/orders", label: "Orders", icon: ShoppingBag },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/dashboard/store", label: "Store editor", icon: Store },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
-] as const;
+] satisfies ReadonlyArray<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  feature?: GatedFeature;
+}>;
 
-export function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
+export function DashboardNav({
+  planKey,
+  onNavigate,
+}: {
+  planKey: PlanKey;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -48,6 +62,7 @@ export function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
         const isActive =
           item.href === "/dashboard" ? pathname === item.href : pathname?.startsWith(item.href);
         const Icon = item.icon;
+        const locked = item.feature ? !hasFeatureAccess(planKey, item.feature) : false;
         return (
           <Link
             key={item.href}
@@ -61,7 +76,17 @@ export function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
             )}
           >
             <Icon className="size-4" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {locked && (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tracking-wide",
+                  isActive ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground",
+                )}
+              >
+                PRO
+              </span>
+            )}
           </Link>
         );
       })}
