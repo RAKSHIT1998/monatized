@@ -49,3 +49,19 @@ export function createPasswordResetToken(email: string): string {
   );
   return output.trim();
 }
+
+// Read-only: the user's current passwordResetTokenExpiresAt (or "null") —
+// see read-password-reset-token-expiry.ts for why this is the only way to
+// observe whether a rate-limited requestPasswordReset call was a no-op.
+export function readPasswordResetTokenExpiry(email: string): string {
+  const output = execFileSync(
+    process.execPath,
+    [
+      require.resolve("tsx/cli"),
+      path.join(__dirname, "fixtures", "read-password-reset-token-expiry.ts"),
+      email,
+    ],
+    { encoding: "utf8" },
+  );
+  return output.trim();
+}

@@ -8,6 +8,7 @@ import { generatePasswordResetToken, hashPasswordResetToken } from "@/lib/passwo
 import { generateUniqueUsername } from "@/lib/username";
 import { getEmailProvider } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
+import { checkRateLimit, getClientIp, formatRetryAfter } from "@/lib/rate-limit";
 import {
   loginSchema,
   signupSchema,
@@ -106,6 +107,21 @@ export async function login(
 
   const { email, password } = validatedFields.data;
 
+  // Per-email (the actual brute-force target) and per-IP (catches credential
+  // stuffing across many different accounts from one source) — either limit
+  // hit blocks the attempt. Checked before touching the DB/bcrypt so a flood
+  // of attempts against one account can't also become a cheap way to load
+  // the database or burn CPU on password hashing.
+  const ip = await getClientIp();
+  const emailLimit = checkRateLimit(`login:email:${email}`, 5, 15 * 60 * 1000);
+  const ipLimit = checkRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000);
+  const exceededLimit = !emailLimit.allowed ? emailLimit : !ipLimit.allowed ? ipLimit : null;
+  if (exceededLimit) {
+    return {
+      message: `Too many login attempts. Try again in ${formatRetryAfter(exceededLimit.retryAfterSeconds)}.`,
+    };
+  }
+
   const genericError: AuthFormState = { message: "Invalid email or password." };
 
   const user = await db.user.findUnique({
@@ -145,8 +161,21 @@ export async function requestPasswordReset(
   if (!validated.success) {
     return { message: GENERIC_RESET_MESSAGE };
   }
+  const { email } = validated.data;
 
-  const user = await db.user.findUnique({ where: { email: validated.data.email } });
+  // Per-email (stops someone from email-bombing one address with reset
+  // links) and per-IP (stops one source from doing that to many different
+  // addresses). A rate-limit hit still returns the same generic message —
+  // the limit applies whether or not the email has an account, so this
+  // reveals nothing about which emails are registered.
+  const ip = await getClientIp();
+  const emailLimit = checkRateLimit(`reset:email:${email}`, 3, 60 * 60 * 1000);
+  const ipLimit = checkRateLimit(`reset:ip:${ip}`, 10, 60 * 60 * 1000);
+  if (!emailLimit.allowed || !ipLimit.allowed) {
+    return { message: GENERIC_RESET_MESSAGE };
+  }
+
+  const user = await db.user.findUnique({ where: { email } });
   if (user) {
     const { token, tokenHash } = generatePasswordResetToken();
     await db.user.update({
