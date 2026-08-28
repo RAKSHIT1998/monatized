@@ -35,6 +35,13 @@ to end.
   (Payment Links API), and `stripe` (Checkout Sessions). Orders are only ever
   marked paid by a signature-verified webhook (or the mock provider's own
   clearly-labeled simulate button) — never by a client-side redirect alone.
+- **Refunds** — a creator can refund any paid order from `/dashboard/orders`,
+  which calls the real refund API for whichever provider actually processed
+  that payment (Stripe Refunds / Razorpay refunds — never faked), reverses
+  the customer's recorded spend, and immediately expires any digital-download
+  links tied to that order rather than leaving them to run out their normal
+  lifetime. A coupon-covered $0 order skips the provider call entirely, same
+  reasoning as checkout skipping it for a $0 charge.
 - **Digital delivery** — signed, expiring, download-limited grants served from
   `/api/download/[token]`, decoupled from the storage backend.
 - **Order confirmation emails** — since there's no customer login system,

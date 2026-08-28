@@ -5,6 +5,8 @@ import type {
   CreateCheckoutParams,
   CreateSubscriptionCheckoutParams,
   PaymentProvider,
+  RefundPaymentParams,
+  RefundResult,
   SubscriptionCheckoutResult,
 } from "./types";
 
@@ -77,6 +79,16 @@ export class StripePaymentProvider implements PaymentProvider {
 
   async cancelProviderSubscription(providerSubscriptionId: string) {
     await this.client.subscriptions.update(providerSubscriptionId, { cancel_at_period_end: true });
+  }
+
+  // providerPaymentId is a PaymentIntent id here — see markOrderPaid's call
+  // site in the checkout.session.completed webhook handler.
+  async refundPayment(params: RefundPaymentParams): Promise<RefundResult> {
+    const refund = await this.client.refunds.create({
+      payment_intent: params.providerPaymentId,
+      amount: params.amountMinor,
+    });
+    return { providerRefundId: refund.id };
   }
 }
 

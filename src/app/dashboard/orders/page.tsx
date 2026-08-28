@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { FulfillmentCell } from "./fulfillment-cell";
+import { RefundButton } from "./refund-button";
 import { Download } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -72,6 +73,7 @@ export default async function OrdersPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Fulfillment</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -93,6 +95,16 @@ export default async function OrdersPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {order.createdAt.toLocaleDateString("en-IN")}
+                    </TableCell>
+                    <TableCell>
+                      {order.status === "PAID" && (
+                        <RefundButton
+                          orderId={order.id}
+                          amountMinor={order.totalAmountMinor}
+                          currency={order.currency}
+                          customerEmail={order.customer.email}
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

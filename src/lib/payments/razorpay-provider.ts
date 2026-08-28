@@ -1,6 +1,12 @@
 import "server-only";
 import Razorpay from "razorpay";
-import type { CheckoutResult, CreateCheckoutParams, PaymentProvider } from "./types";
+import type {
+  CheckoutResult,
+  CreateCheckoutParams,
+  PaymentProvider,
+  RefundPaymentParams,
+  RefundResult,
+} from "./types";
 
 export class RazorpayPaymentProvider implements PaymentProvider {
   name = "RAZORPAY" as const;
@@ -28,5 +34,14 @@ export class RazorpayPaymentProvider implements PaymentProvider {
     });
 
     return { checkoutUrl: paymentLink.short_url, providerOrderId: paymentLink.id };
+  }
+
+  // providerPaymentId is the real Razorpay payment id here — see
+  // markOrderPaid's call site in the payment_link.paid webhook handler.
+  async refundPayment(params: RefundPaymentParams): Promise<RefundResult> {
+    const refund = await this.client.payments.refund(params.providerPaymentId, {
+      amount: params.amountMinor,
+    });
+    return { providerRefundId: refund.id };
   }
 }

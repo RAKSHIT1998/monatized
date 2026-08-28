@@ -30,6 +30,16 @@ export type SubscriptionCheckoutResult = {
   providerSubscriptionId: string;
 };
 
+export type RefundPaymentParams = {
+  providerPaymentId: string;
+  amountMinor: number;
+  currency: string;
+};
+
+export type RefundResult = {
+  providerRefundId: string;
+};
+
 export interface PaymentProvider {
   name: "MOCK" | "RAZORPAY" | "STRIPE";
   createCheckout(params: CreateCheckoutParams): Promise<CheckoutResult>;
@@ -44,4 +54,10 @@ export interface PaymentProvider {
   ): Promise<SubscriptionCheckoutResult>;
   /** Cancel at the current period's end — the provider stops future renewals but keeps existing access intact. */
   cancelProviderSubscription?(providerSubscriptionId: string): Promise<void>;
+  /**
+   * Full refund of a completed payment. Required (unlike the subscription
+   * methods above) — all three providers genuinely support this, there's no
+   * "not wired up yet" case to fall back from.
+   */
+  refundPayment(params: RefundPaymentParams): Promise<RefundResult>;
 }

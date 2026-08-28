@@ -1,9 +1,11 @@
 import "server-only";
+import { randomBytes } from "node:crypto";
 import type {
   CheckoutResult,
   CreateCheckoutParams,
   CreateSubscriptionCheckoutParams,
   PaymentProvider,
+  RefundResult,
   SubscriptionCheckoutResult,
 } from "./types";
 
@@ -31,5 +33,9 @@ export class MockPaymentProvider implements PaymentProvider {
 
   async cancelProviderSubscription() {
     // Nothing external to cancel — the mock subscription lifecycle lives entirely in our own DB.
+  }
+
+  async refundPayment(): Promise<RefundResult> {
+    return { providerRefundId: `mock_refund_${randomBytes(6).toString("hex")}` };
   }
 }
