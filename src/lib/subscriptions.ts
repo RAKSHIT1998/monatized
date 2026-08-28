@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { generateOrderNumber } from "@/lib/orders";
 import { nextPeriodEnd } from "@/lib/billing-cycle";
 import { runAutomations } from "@/lib/automations";
+import { getEmailProvider } from "@/lib/email";
+import { getAppUrl } from "@/lib/app-url";
 import type { PaymentProvider } from "@/generated/prisma/enums";
 
 export function generateSubscriptionAccessToken() {
@@ -71,7 +73,11 @@ export async function activateSubscription(
 ) {
   const subscription = await db.subscription.findUniqueOrThrow({
     where: { id: subscriptionId },
-    include: { customer: { select: { email: true } } },
+    include: {
+      customer: { select: { email: true } },
+      product: { select: { title: true } },
+      creatorProfile: { select: { displayName: true } },
+    },
   });
   if (subscription.status === "ACTIVE") return; // already activated — webhook retry
 
@@ -89,6 +95,47 @@ export async function activateSubscription(
   await runAutomations(subscription.creatorProfileId, "NEW_SUBSCRIBER", {
     customerId: subscription.customerId,
     customerEmail: subscription.customer.email,
+  });
+
+  await sendWelcomeEmail(subscription);
+}
+
+// Best-effort, first-charge-only welcome email — there's no customer login
+// system here, so this member link is a subscriber's only way back in.
+// Deliberately not resent on every renewal (see renewSubscription), matching
+// the "receipt once, not spam every cycle" norm real subscription products use.
+async function sendWelcomeEmail(subscription: {
+  accessToken: string;
+  customerId: string;
+  customer: { email: string };
+  product: { title: string };
+  creatorProfile: { displayName: string };
+}) {
+  const provider = getEmailProvider();
+  const memberUrl = `${getAppUrl()}/member/${subscription.accessToken}`;
+  const subject = `You're in — ${subscription.product.title}`;
+  const text = [
+    `Welcome to ${subscription.product.title} by ${subscription.creatorProfile.displayName}!`,
+    "",
+    `Manage your membership here: ${memberUrl}`,
+    "",
+    "Bookmark this link — it's how you'll come back to manage or cancel your membership.",
+  ].join("\n");
+
+  let status: "SENT" | "FAILED" = "SENT";
+  try {
+    await provider.send({ to: subscription.customer.email, subject, text });
+  } catch {
+    status = "FAILED";
+  }
+  await db.emailLog.create({
+    data: {
+      customerId: subscription.customerId,
+      toEmail: subscription.customer.email,
+      subject,
+      provider: provider.name,
+      status,
+    },
   });
 }
 

@@ -12,7 +12,15 @@ to end.
 
 - **Auth** — email/password signup & login, stateless JWT sessions (httpOnly
   cookie, `jose`), server-side revocation via a `tokenVersion` bump, RBAC
-  (`CREATOR` / `ADMIN`).
+  (`CREATOR` / `ADMIN`), and self-service password reset: a time-limited
+  (1 hour), single-use token — only its SHA-256 hash is ever stored, so a DB
+  leak alone can't be used to reset an account — emailed via the same
+  `EmailProvider` abstraction campaigns use. The "check your email" response
+  is identical whether or not the address has an account, to avoid leaking
+  which emails are registered. Resetting bumps `tokenVersion` (signing out
+  every session) and explicitly clears the browser's own cookie, so a reset
+  from a browser that's still logged in elsewhere can't leave a stale,
+  cryptographically-valid-but-DB-invalidated cookie behind.
 - **Onboarding** — a 3-step wizard (business basics → claim your store URL →
   launch) that provisions a `CreatorProfile` on signup.
 - **Creator dashboard** — overview, products, orders, customers, analytics,
@@ -29,6 +37,13 @@ to end.
   clearly-labeled simulate button) — never by a client-side redirect alone.
 - **Digital delivery** — signed, expiring, download-limited grants served from
   `/api/download/[token]`, decoupled from the storage backend.
+- **Order confirmation emails** — since there's no customer login system,
+  the bookmarkable `/order/[orderNumber]` (or `/member/[accessToken]` for a
+  new subscriber) link is a buyer's only way back to what they bought.
+  `markOrderPaid`/`activateSubscription` email that link to the buyer via the
+  same `EmailProvider` abstraction, logged to `EmailLog` for visibility. A
+  send failure is caught and never allowed to break the payment flow that
+  triggered it — same posture as automations.
 - **Analytics** — store views / product views / checkout starts / conversion
   rate, a revenue-over-time chart, top products by revenue.
 - **Admin panel** — platform overview (GMV, platform revenue, creators by

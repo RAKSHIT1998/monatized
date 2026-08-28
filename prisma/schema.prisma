@@ -145,8 +145,13 @@ model User {
   // Bumping this invalidates every previously-issued session JWT for the user
   // (used on password change / logout-everywhere) without needing a session table.
   tokenVersion Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  // A hash of the reset token, never the raw value — same reasoning as a
+  // password hash, so a DB leak alone can't be used to reset an account.
+  // Both null once unused/consumed/expired.
+  passwordResetTokenHash      String?
+  passwordResetTokenExpiresAt DateTime?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   creatorProfile CreatorProfile?
   auditLogs      AuditLog[]

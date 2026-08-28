@@ -20,6 +20,7 @@ import { generateBookingAccessToken } from "@/lib/bookings";
 import { startCheckoutSchema, shippingAddressSchema, tipAmountSchema } from "@/lib/validation/checkout";
 import { bookingSlotSelectionSchema } from "@/lib/validation/booking";
 import { toMinorUnits } from "@/lib/money";
+import { getAppUrl } from "@/lib/app-url";
 import type { Product } from "@/generated/prisma/client";
 
 export type CheckoutFormState =
@@ -28,10 +29,6 @@ export type CheckoutFormState =
       message?: string;
     }
   | undefined;
-
-function getAppUrl() {
-  return process.env.APP_URL ?? "http://localhost:3000";
-}
 
 // Thrown from inside the checkout $transaction when a PHYSICAL product's
 // limited stock ran out between page load and submit — caught below and

@@ -35,3 +35,17 @@ export function upgradeToPro(username: string) {
     { stdio: "inherit" },
   );
 }
+
+// Generates a real password-reset token for the given user and returns the
+// raw value, bypassing only the "email delivery" step (the console email
+// provider doesn't print the message body, so there's no other way to
+// recover it in a test) — see create-password-reset-token.ts for why this is
+// still a genuine exercise of the real resetPassword action.
+export function createPasswordResetToken(email: string): string {
+  const output = execFileSync(
+    process.execPath,
+    [require.resolve("tsx/cli"), path.join(__dirname, "fixtures", "create-password-reset-token.ts"), email],
+    { encoding: "utf8" },
+  );
+  return output.trim();
+}

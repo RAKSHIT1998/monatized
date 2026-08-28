@@ -3,6 +3,9 @@ import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { calculateCommissionMinor } from "@/lib/affiliates";
 import { runAutomations } from "@/lib/automations";
+import { getEmailProvider } from "@/lib/email";
+import { getAppUrl } from "@/lib/app-url";
+import { formatMoney } from "@/lib/money";
 
 export function generateOrderNumber() {
   return `MON-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -26,6 +29,7 @@ export async function markOrderPaid(orderId: string, providerPaymentId: string) 
       items: { include: { product: { include: { digitalFiles: true } } } },
       affiliate: true,
       customer: { select: { email: true } },
+      creatorProfile: { select: { displayName: true } },
     },
   });
   if (!order) throw new Error(`Order ${orderId} not found.`);
@@ -109,6 +113,55 @@ export async function markOrderPaid(orderId: string, providerPaymentId: string) 
   await runAutomations(order.creatorProfileId, "ORDER_PAID", {
     customerId: order.customerId,
     customerEmail: order.customer.email,
+  });
+
+  await sendOrderConfirmationEmail(order);
+}
+
+// Best-effort — there's no customer login system here, so the order page's
+// bookmarkable link is a buyer's only way back to their downloads/course/
+// booking. A failed send must never fail the payment flow that triggered it,
+// same posture as automations above.
+async function sendOrderConfirmationEmail(order: {
+  id: string;
+  orderNumber: string;
+  customerId: string;
+  totalAmountMinor: number;
+  currency: string;
+  customer: { email: string };
+  creatorProfile: { displayName: string };
+  items: { titleSnapshot: string }[];
+}) {
+  const provider = getEmailProvider();
+  const orderUrl = `${getAppUrl()}/order/${order.orderNumber}`;
+  const itemLines = order.items.map((item) => `- ${item.titleSnapshot}`).join("\n");
+  const subject = `Your order from ${order.creatorProfile.displayName}`;
+  const text = [
+    `Thanks for your order from ${order.creatorProfile.displayName}!`,
+    "",
+    itemLines,
+    "",
+    `Total: ${formatMoney(order.totalAmountMinor, order.currency)}`,
+    "",
+    `View your order and access your purchase here: ${orderUrl}`,
+    "",
+    "Bookmark this link — it's how you'll come back to your purchase.",
+  ].join("\n");
+
+  let status: "SENT" | "FAILED" = "SENT";
+  try {
+    await provider.send({ to: order.customer.email, subject, text });
+  } catch {
+    status = "FAILED";
+  }
+  await db.emailLog.create({
+    data: {
+      customerId: order.customerId,
+      toEmail: order.customer.email,
+      subject,
+      provider: provider.name,
+      status,
+    },
   });
 }
 
