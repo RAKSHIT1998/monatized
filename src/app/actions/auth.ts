@@ -43,6 +43,21 @@ export async function signup(
 
   const { name, email, password } = validatedFields.data;
 
+  // Per-IP only — an email-based limit would be redundant with the
+  // uniqueness check right below, and the actual abuse this stops is one
+  // source mass-creating many different accounts, not targeting one email.
+  // Deliberately generous (unlike login/reset's tighter limits): every real
+  // visitor behind a shared IP (offices, campus/CGNAT) shares this same
+  // budget, and — with no reverse proxy in front of local dev — so does this
+  // app's entire E2E suite (~30 signups per full run, all from the one
+  // "unknown" IP getClientIp() falls back to locally). Still a real ceiling
+  // against a scripted flood, just not tuned as tightly as the others.
+  const ip = await getClientIp();
+  const ipLimit = checkRateLimit(`signup:ip:${ip}`, 50, 10 * 60 * 1000);
+  if (!ipLimit.allowed) {
+    return { message: `Too many signups from this connection. Try again in ${formatRetryAfter(ipLimit.retryAfterSeconds)}.` };
+  }
+
   const existingUser = await db.user.findUnique({ where: { email } });
   if (existingUser) {
     return { errors: { email: ["An account with this email already exists."] } };

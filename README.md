@@ -221,6 +221,56 @@ a working local-dev default. Notably:
   uses deterministic, rule-based text, no key needed. Set to `anthropic` and
   fill in `ANTHROPIC_API_KEY` to generate with Claude instead.
 
+## Deploying
+
+This has only ever run in local dev in this repo's history — nobody has
+pointed real payment/email/AI keys or a real domain at it. A `Dockerfile`
+(multi-stage, `output: "standalone"`) is included for a container host
+(Fly.io, Railway, Render, a plain VPS); the architecture assumes a
+long-running Node process, which rules out a serverless host like Vercel
+without changes — see the rate-limiting caveat below.
+
+**Building the image:**
+
+```bash
+docker build --build-arg DATABASE_URL="postgresql://..." -t monetized .
+```
+
+`next build` statically prerenders the landing page (`/`), which queries the
+`Plan` table directly — **`DATABASE_URL` must point at a real, reachable,
+already-migrated database at build time**, not just at container runtime.
+Run `npx prisma migrate deploy` (not `migrate dev`, which prompts
+interactively and is meant for local schema iteration) against that database
+before building.
+
+**Before it's handling real traffic:**
+
+- Rotate the seeded admin password (`admin@monetized.local` /
+  `ChangeMe123!`) — either update it via `/admin` → your account, or reseed
+  with `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD` set to real values first.
+- Generate a real `SESSION_SECRET` (`openssl rand -base64 32`) — the one in
+  `.env.example` and this repo's dev `.env` must never be reused.
+- Set `PAYMENT_PROVIDER=stripe` or `razorpay` with real keys, and register
+  each provider's webhook endpoint (`/api/webhooks/stripe`,
+  `/api/webhooks/razorpay`) in their respective dashboards — orders are only
+  ever marked paid by a signature-verified webhook, so checkout silently
+  never completes without this step.
+- Set `STORAGE_DRIVER=s3` with a real bucket — the local disk driver's files
+  don't survive a redeploy and aren't shared across instances.
+- Set `EMAIL_PROVIDER=resend` with a real `RESEND_API_KEY` if you want order
+  confirmations, password resets, and campaigns to actually deliver — the
+  console provider only logs them.
+- Point the deployment's DNS/domain at wherever the container runs, and
+  confirm `APP_URL` matches it — emailed links (order confirmations,
+  password resets) are built from this value.
+- **The rate limiter (`src/lib/rate-limit.ts`) is in-memory and
+  per-process** — correct for a single long-running container, silently
+  ineffective on a serverless/edge platform where each invocation may be a
+  separate cold process, and only partially effective the moment you run
+  more than one container instance behind a load balancer (each instance
+  has its own counters). Move it to a shared store (Redis) before doing
+  either.
+
 ## Testing
 
 ```bash

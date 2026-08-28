@@ -63,3 +63,24 @@ test("password reset requests are rate-limited without revealing it in the respo
   const expiryAfterRateLimitedRequest = readPasswordResetTokenExpiry(email);
   expect(expiryAfterRateLimitedRequest).toBe(expiryAfterLimit);
 });
+
+// Signup's rate limit is intentionally much more generous than login/reset's
+// (see the comment at its call site) specifically so it doesn't collide with
+// this suite's own signups — every other spec's signupAndOnboard() call
+// already exercises "does a real signup still succeed with the limiter
+// wired in" across ~30 signups per full run without tripping it. Actually
+// driving the limiter to its blocked state here would mean either padding
+// this one test out to 50+ real signups (slow, and it'd eat most of the
+// budget the rest of the suite is quietly relying on) or shrinking the
+// production limit to something an office/campus IP could hit legitimately
+// — the core blocking logic itself is already covered by
+// rate-limit-core.test.ts, and the wiring pattern (checkRateLimit → generic
+// message) is identical to login's and reset's, both proven above.
+test("signup still succeeds normally with the rate limiter wired in", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByLabel("Name").fill("Rate Limit Test");
+  await page.getByLabel("Email").fill(`signuplimit-${Date.now()}@example.com`);
+  await page.getByLabel("Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: /create free store/i }).click();
+  await page.waitForURL(/\/onboarding/);
+});
