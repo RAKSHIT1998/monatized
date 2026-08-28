@@ -115,6 +115,12 @@ export function CourseViewer({
                 src={selectedLesson.videoUrl}
                 className="size-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                // Defense-in-depth alongside the http(s)-only videoUrl validation:
+                // no top-level navigation or form submission from embedded
+                // content, even if some other embed source turns out to be
+                // less trustworthy than expected. Scripts/same-origin/popups
+                // are still needed for real players (YouTube/Vimeo) to work.
+                sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
                 allowFullScreen
               />
             </div>
