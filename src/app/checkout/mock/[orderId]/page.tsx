@@ -18,7 +18,7 @@ export default async function MockCheckoutPage({
 
   const order = await db.order.findUnique({
     where: { id: orderId },
-    include: { payment: true, items: true },
+    include: { payment: true, items: { orderBy: { id: "asc" } } },
   });
 
   if (!order || order.payment?.provider !== "MOCK" || order.status !== "PENDING") {
@@ -36,7 +36,10 @@ export default async function MockCheckoutPage({
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="rounded-lg border p-3">
-            <p className="text-sm text-muted-foreground">{order.items[0]?.titleSnapshot}</p>
+            <p className="text-sm text-muted-foreground">
+              {order.items[0]?.titleSnapshot}
+              {order.items.length > 1 && ` + ${order.items.length - 1} more`}
+            </p>
             <p className="text-lg font-semibold">
               {formatMoney(order.totalAmountMinor, order.currency)}
             </p>

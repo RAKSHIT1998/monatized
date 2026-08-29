@@ -166,6 +166,15 @@ to end.
   fee (blank = free) is added on top of the price at checkout — never
   multiplied by quantity or discounted by a coupon — and broken out as its own
   line on the receipt, same convention real checkouts use.
+- **Cart & multi-item checkout** — buyers can add several Digital/Course/
+  Physical products from the same creator's store to a cart (stored in
+  `localStorage`, since there's no buyer login system) and pay for them in
+  one order at `/{username}/checkout`, instead of one product per order.
+  Bookings, Subscriptions, and Tips keep their existing single-item "Buy
+  now" flow, since each has its own special checkout step (a slot, recurring
+  billing, a custom amount) that doesn't fit a cart. Every price, stock
+  check, and coupon calculation is re-fetched and recomputed server-side at
+  checkout — the client only ever sends `{productId, quantity}` pairs.
 - **Tips & donations** *(Phase 5)* — a sixth product type for one-off
   supporter tips. The creator's price is a *suggested* amount only (chip
   presets at 1×/2×/5×), never an enforced minimum — a buyer can also enter any

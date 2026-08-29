@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { computeGrowthInsights } from "@/lib/growth-insights";
+import { getProductRevenueTotals } from "@/lib/order-item-revenue";
 import { hasFeatureAccess, featureLabel, minPlanFor, planDisplayName } from "@/lib/plan-features";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,13 +30,9 @@ export default async function GrowthPage() {
     );
   }
 
-  const [revenueByProduct, pastDueSubscriberCount, eventCounts, activeCouponCount, customers, products] =
+  const [revenueTotals, pastDueSubscriberCount, eventCounts, activeCouponCount, customers, products] =
     await Promise.all([
-      db.orderItem.groupBy({
-        by: ["productId"],
-        where: { order: { creatorProfileId, status: "PAID" } },
-        _sum: { priceAmountMinorSnapshot: true },
-      }),
+      getProductRevenueTotals(creatorProfileId),
       db.subscription.count({ where: { creatorProfileId, status: "PAST_DUE" } }),
       db.analyticsEvent.groupBy({
         by: ["type"],
@@ -58,9 +55,9 @@ export default async function GrowthPage() {
   ) as Record<string, number>;
 
   const insights = computeGrowthInsights({
-    productRevenues: revenueByProduct.map((r) => ({
-      title: titleById.get(r.productId) ?? "Unknown",
-      totalMinor: r._sum.priceAmountMinorSnapshot ?? 0,
+    productRevenues: [...revenueTotals.entries()].map(([productId, totalMinor]) => ({
+      title: titleById.get(productId) ?? "Unknown",
+      totalMinor,
     })),
     productCount: products.length,
     pastDueSubscriberCount,

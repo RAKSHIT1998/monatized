@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Download, CheckCircle2, XCircle, Clock, GraduationCap, CalendarCheck, Truck, Heart } from "lucide-react";
 import { OrderStatusPoller } from "./order-status-poller";
+import { ClearCartOnPaid } from "./clear-cart-on-paid";
 
 export const metadata: Metadata = {
   title: "Your order — Monetized",
@@ -50,9 +51,12 @@ export default async function OrderPage({
 
   if (!order) notFound();
 
-  const retryHref = order.items[0]
-    ? `/${order.creatorProfile.username}/${order.items[0].product.slug}`
-    : `/${order.creatorProfile.username}`;
+  const retryHref =
+    order.items.length > 1
+      ? `/${order.creatorProfile.username}/cart`
+      : order.items[0]
+        ? `/${order.creatorProfile.username}/${order.items[0].product.slug}`
+        : `/${order.creatorProfile.username}`;
 
   const isPaid = order.status === "PAID";
   const hasPhysicalItem = order.items.some((item) => item.product.type === "PHYSICAL");
@@ -61,6 +65,7 @@ export default async function OrderPage({
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-lg flex-col gap-6 px-4 py-12">
+      <ClearCartOnPaid username={order.creatorProfile.username} paid={isPaid} />
       {order.status === "PENDING" && <OrderStatusPoller />}
 
       <Card
@@ -89,9 +94,11 @@ export default async function OrderPage({
               <div className="flex flex-col gap-1.5 border-t border-dashed pt-4 font-mono text-sm">
                 {order.items.map((item) => (
                   <div key={item.id} className="flex items-baseline justify-between gap-3">
-                    <span className="truncate">1x {item.titleSnapshot}</span>
+                    <span className="truncate">
+                      {item.quantity}x {item.titleSnapshot}
+                    </span>
                     <span className="shrink-0 tabular-nums">
-                      {formatMoney(item.priceAmountMinorSnapshot, order.currency)}
+                      {formatMoney(item.priceAmountMinorSnapshot * item.quantity, order.currency)}
                     </span>
                   </div>
                 ))}
@@ -122,9 +129,11 @@ export default async function OrderPage({
               <>
                 {order.items.map((item) => (
                   <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <span className="font-medium">{item.titleSnapshot}</span>
+                    <span className="font-medium">
+                      {item.quantity}x {item.titleSnapshot}
+                    </span>
                     <span className="text-sm text-muted-foreground">
-                      {formatMoney(item.priceAmountMinorSnapshot, order.currency)}
+                      {formatMoney(item.priceAmountMinorSnapshot * item.quantity, order.currency)}
                     </span>
                   </div>
                 ))}

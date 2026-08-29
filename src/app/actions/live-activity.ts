@@ -32,13 +32,16 @@ export async function getRecentPaidOrdersSince(sinceIso: string): Promise<Recent
       totalAmountMinor: true,
       currency: true,
       customer: { select: { email: true } },
-      items: { select: { titleSnapshot: true }, take: 1 },
+      items: { select: { titleSnapshot: true }, orderBy: { id: "asc" }, take: 1 },
+      _count: { select: { items: true } },
     },
   });
 
   return orders.map((order) => ({
     id: order.id,
-    productTitle: order.items[0]?.titleSnapshot ?? "a product",
+    productTitle:
+      (order.items[0]?.titleSnapshot ?? "a product") +
+      (order._count.items > 1 ? ` + ${order._count.items - 1} more` : ""),
     amountMinor: order.totalAmountMinor,
     currency: order.currency,
     customerEmail: order.customer.email,

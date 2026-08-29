@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { db } from "@/lib/db";
+import { getProductRevenueTotals, topProductRevenues } from "@/lib/order-item-revenue";
 import { BarChart } from "@/components/dashboard/charts/bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -27,7 +28,7 @@ export default async function AnalyticsPage() {
   since.setDate(since.getDate() - (DAYS_BACK - 1));
   since.setHours(0, 0, 0, 0);
 
-  const [paidOrders, eventCounts, topItems] = await Promise.all([
+  const [paidOrders, eventCounts, revenueTotals] = await Promise.all([
     db.order.findMany({
       where: { creatorProfileId, status: "PAID", createdAt: { gte: since } },
       select: { createdAt: true, totalAmountMinor: true },
@@ -37,14 +38,9 @@ export default async function AnalyticsPage() {
       where: { creatorProfileId, createdAt: { gte: since } },
       _count: { _all: true },
     }),
-    db.orderItem.groupBy({
-      by: ["productId"],
-      where: { order: { creatorProfileId, status: "PAID" } },
-      _sum: { priceAmountMinorSnapshot: true },
-      orderBy: { _sum: { priceAmountMinorSnapshot: "desc" } },
-      take: 5,
-    }),
+    getProductRevenueTotals(creatorProfileId),
   ]);
+  const topItems = topProductRevenues(revenueTotals, 5);
 
   const revenueByDay = new Map<string, number>();
   for (let i = 0; i < DAYS_BACK; i++) {
@@ -78,7 +74,7 @@ export default async function AnalyticsPage() {
   const productTitleById = new Map(products.map((p) => [p.id, p.title]));
   const topProductsData = topItems.map((item) => ({
     label: productTitleById.get(item.productId) ?? "Unknown",
-    value: item._sum.priceAmountMinorSnapshot ?? 0,
+    value: item.totalMinor,
   }));
 
   return (

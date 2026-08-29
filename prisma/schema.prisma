@@ -370,9 +370,9 @@ model Product {
   // atomically at checkout (see startCheckout) and restored if the order fails.
   stockQuantity          Int?
   // only meaningful for PHYSICAL products. Null/0 = free shipping. A flat fee
-  // added on top of the price at checkout — not multiplied by quantity (there
-  // is no multi-quantity checkout yet) and never discounted by a coupon,
-  // matching how shipping is excluded from the discount base below.
+  // added on top of the price at checkout — not multiplied by an item's
+  // quantity within a cart line, and never discounted by a coupon, matching
+  // how shipping is excluded from the discount base below.
   shippingFeeMinor       Int?
   coverImageUrl          String?
   status                 ProductStatus    @default(DRAFT)

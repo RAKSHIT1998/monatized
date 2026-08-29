@@ -36,7 +36,9 @@ export async function GET() {
     order.orderNumber,
     order.createdAt.toISOString(),
     order.customer.email,
-    order.items.map((i) => i.titleSnapshot).join("; "),
+    order.items
+      .map((i) => (i.quantity > 1 ? `${i.quantity}x ${i.titleSnapshot}` : i.titleSnapshot))
+      .join("; "),
     formatMoney(order.totalAmountMinor, order.currency),
     order.status,
     order.fulfillmentStatus,

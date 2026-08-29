@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getPublicStoreByUsername, getRecentSalesCount, recordStoreView } from "@/lib/storefront";
 import { formatMoney } from "@/lib/money";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CartBadge } from "@/components/storefront/cart-badge";
 import { ExternalLink, Flame } from "lucide-react";
 
 export async function generateMetadata({
@@ -54,6 +55,7 @@ export default async function StorefrontPage({
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-8 px-4 py-12">
+      <CartBadge username={username} />
       <div className="flex flex-col items-center gap-4 text-center">
         <Avatar size="lg" className="size-20">
           {store.avatarUrl && <AvatarImage src={store.avatarUrl} alt={store.displayName} />}

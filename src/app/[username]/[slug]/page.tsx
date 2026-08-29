@@ -7,6 +7,9 @@ import { recordStoreView } from "@/lib/storefront";
 import { formatMoney } from "@/lib/money";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isCartEligibleType } from "@/lib/cart-constants";
+import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
+import { CartBadge } from "@/components/storefront/cart-badge";
 
 async function getPublishedProduct(username: string, slug: string) {
   return db.product.findFirst({
@@ -62,6 +65,7 @@ export default async function ProductPage({
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-lg flex-col gap-6 px-4 py-12">
+      <CartBadge username={username} />
       <Link
         href={`/${username}`}
         className="text-sm text-muted-foreground hover:text-foreground"
@@ -144,19 +148,29 @@ export default async function ProductPage({
         >
           Sold out
         </span>
+      ) : isCartEligibleType(product.type) ? (
+        <div className="flex gap-2">
+          <AddToCartButton
+            username={username}
+            productId={product.id}
+            slug={slug}
+            className="flex-1"
+          />
+          <Link
+            href={`/${username}/${slug}/checkout`}
+            className={cn(buttonVariants({ size: "lg" }), "flex-1 text-white")}
+            style={{ backgroundColor: accent }}
+          >
+            Buy now
+          </Link>
+        </div>
       ) : (
         <Link
           href={`/${username}/${slug}/checkout`}
           className={cn(buttonVariants({ size: "lg" }), "w-full text-white")}
           style={{ backgroundColor: accent }}
         >
-          {product.type === "SUBSCRIPTION"
-            ? "Subscribe"
-            : product.type === "BOOKING"
-              ? "Book a time"
-              : product.type === "TIP"
-                ? "Give a tip"
-                : "Buy now"}
+          {product.type === "SUBSCRIPTION" ? "Subscribe" : product.type === "BOOKING" ? "Book a time" : "Give a tip"}
         </Link>
       )}
     </div>

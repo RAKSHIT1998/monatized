@@ -81,7 +81,11 @@ export default async function OrdersPage() {
                   <TableRow key={order.id}>
                     <TableCell className="font-mono text-xs">{order.orderNumber}</TableCell>
                     <TableCell>{order.customer.email}</TableCell>
-                    <TableCell>{order.items.map((i) => i.titleSnapshot).join(", ")}</TableCell>
+                    <TableCell>
+                      {order.items
+                        .map((i) => (i.quantity > 1 ? `${i.quantity}x ${i.titleSnapshot}` : i.titleSnapshot))
+                        .join(", ")}
+                    </TableCell>
                     <TableCell>{formatMoney(order.totalAmountMinor, order.currency)}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[order.status]}>{order.status}</Badge>

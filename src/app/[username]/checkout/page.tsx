@@ -1,0 +1,32 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
+import { CartCheckoutForm } from "./cart-checkout-form";
+
+export const metadata: Metadata = {
+  title: "Checkout — Monetized",
+};
+
+export default async function CartCheckoutPage({
+  params,
+}: {
+  params: Promise<{ username: string }>;
+}) {
+  const { username } = await params;
+
+  const creatorProfile = await db.creatorProfile.findUnique({
+    where: { username },
+    select: { displayName: true },
+  });
+  if (!creatorProfile) notFound();
+
+  return (
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-12">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
+        <p className="text-sm text-muted-foreground">{creatorProfile.displayName}</p>
+      </div>
+      <CartCheckoutForm username={username} />
+    </div>
+  );
+}
