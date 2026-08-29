@@ -162,7 +162,10 @@ to end.
   order later fails, the same as an abandoned booking hold freeing its slot.
   Checkout collects a shipping address (stored on the `Order`); creators mark
   orders shipped with an optional tracking number from `/dashboard/orders`,
-  which the buyer then sees on their receipt.
+  which the buyer then sees on their receipt. An optional flat-rate shipping
+  fee (blank = free) is added on top of the price at checkout — never
+  multiplied by quantity or discounted by a coupon — and broken out as its own
+  line on the receipt, same convention real checkouts use.
 - **Tips & donations** *(Phase 5)* — a sixth product type for one-off
   supporter tips. The creator's price is a *suggested* amount only (chip
   presets at 1×/2×/5×), never an enforced minimum — a buyer can also enter any

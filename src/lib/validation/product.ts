@@ -23,3 +23,14 @@ export const stockQuantitySchema = z
     z.coerce.number().int().min(0, "Stock can't be negative.").max(1_000_000),
   ])
   .transform((v) => (v === null || v === undefined || v === "" ? null : v));
+
+// Blank/omitted means free shipping — same shape as stockQuantitySchema, in
+// rupees (converted to minor units at the action layer, like priceAmount).
+export const shippingFeeSchema = z
+  .union([
+    z.null(),
+    z.undefined(),
+    z.literal(""),
+    z.coerce.number().min(0, "Shipping fee can't be negative.").max(100_000, "That shipping fee looks too high."),
+  ])
+  .transform((v) => (v === null || v === undefined || v === "" ? null : v));

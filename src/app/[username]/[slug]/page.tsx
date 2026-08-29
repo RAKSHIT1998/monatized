@@ -103,6 +103,11 @@ export default async function ProductPage({
         {isLowStock && (
           <p className="mt-1 text-sm font-medium text-amber-600">Only {product.stockQuantity} left</p>
         )}
+        {product.type === "PHYSICAL" && !!product.shippingFeeMinor && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            + {formatMoney(product.shippingFeeMinor, product.currency)} shipping
+          </p>
+        )}
       </div>
 
       {product.description && (

@@ -146,9 +146,13 @@ export async function startCheckout(
   const refCode = (await cookies()).get(REF_COOKIE_NAME)?.value;
   const affiliate = refCode ? await findActiveAffiliateByCode(product.creatorProfileId, refCode) : null;
 
+  // Not multiplied by quantity (there's no multi-quantity checkout yet) and
+  // never discounted by a coupon — shipping is added after the discount,
+  // same convention real checkouts use.
+  const shippingFeeAmountMinor = product.type === "PHYSICAL" ? (product.shippingFeeMinor ?? 0) : 0;
   const subtotalAmountMinor = tipAmountMinor ?? product.priceAmountMinor;
   const discountAmountMinor = coupon ? calculateDiscountMinor(subtotalAmountMinor, coupon) : 0;
-  const totalAmountMinor = subtotalAmountMinor - discountAmountMinor;
+  const totalAmountMinor = subtotalAmountMinor - discountAmountMinor + shippingFeeAmountMinor;
   const platformFeeAmountMinor = Math.round(
     (totalAmountMinor * product.creatorProfile.plan.platformFeeBps) / 10_000,
   );
@@ -167,6 +171,7 @@ export async function startCheckout(
           currency: product.currency,
           subtotalAmountMinor,
           discountAmountMinor,
+          shippingFeeAmountMinor,
           totalAmountMinor,
           platformFeeAmountMinor,
           shippingAddress: shippingAddress ?? undefined,
@@ -397,8 +402,10 @@ export async function previewCoupon(
   const result = await lookupValidCoupon(product.creatorProfileId, code);
   if (!result.valid) return { valid: false, message: result.message };
 
+  // Shipping is never discounted — added after, same as startCheckout.
+  const shippingFeeAmountMinor = product.type === "PHYSICAL" ? (product.shippingFeeMinor ?? 0) : 0;
   const discountAmountMinor = calculateDiscountMinor(product.priceAmountMinor, result.coupon);
-  const totalAmountMinor = product.priceAmountMinor - discountAmountMinor;
+  const totalAmountMinor = product.priceAmountMinor - discountAmountMinor + shippingFeeAmountMinor;
 
   return {
     valid: true,

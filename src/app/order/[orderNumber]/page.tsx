@@ -103,6 +103,14 @@ export default async function OrderPage({
                     </span>
                   </div>
                 )}
+                {order.shippingFeeAmountMinor > 0 && (
+                  <div className="flex items-baseline justify-between gap-3 text-muted-foreground">
+                    <span className="truncate">Shipping</span>
+                    <span className="shrink-0 tabular-nums">
+                      {formatMoney(order.shippingFeeAmountMinor, order.currency)}
+                    </span>
+                  </div>
+                )}
                 <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-dashed pt-2 text-base font-bold">
                   <span>TOTAL</span>
                   <span className="tabular-nums">
@@ -121,12 +129,20 @@ export default async function OrderPage({
                   </div>
                 ))}
 
-                {order.discountAmountMinor > 0 && (
+                {(order.discountAmountMinor > 0 || order.shippingFeeAmountMinor > 0) && (
                   <div className="flex flex-col gap-1 text-sm">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Coupon {order.coupon?.code}</span>
-                      <span>-{formatMoney(order.discountAmountMinor, order.currency)}</span>
-                    </div>
+                    {order.discountAmountMinor > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Coupon {order.coupon?.code}</span>
+                        <span>-{formatMoney(order.discountAmountMinor, order.currency)}</span>
+                      </div>
+                    )}
+                    {order.shippingFeeAmountMinor > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Shipping</span>
+                        <span>{formatMoney(order.shippingFeeAmountMinor, order.currency)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-medium">
                       <span>Total</span>
                       <span>{formatMoney(order.totalAmountMinor, order.currency)}</span>

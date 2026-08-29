@@ -39,6 +39,7 @@ export default async function CheckoutPage({
 
   const slots =
     product.type === "BOOKING" ? await getAvailableSlotsForProduct(product.id) : [];
+  const shippingFeeMinor = product.type === "PHYSICAL" ? (product.shippingFeeMinor ?? 0) : 0;
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-12">
@@ -62,15 +63,22 @@ export default async function CheckoutPage({
           <p className="truncate font-medium">{product.title}</p>
           <p className="text-sm text-muted-foreground">by {product.creatorProfile.displayName}</p>
         </div>
-        <p className="shrink-0 font-medium">
-          {product.type === "TIP" && "From "}
-          {formatMoney(product.priceAmountMinor, product.currency)}
-          {product.type === "SUBSCRIPTION" && (
-            <span className="text-xs font-normal text-muted-foreground">
-              /{product.billingInterval === "MONTHLY" ? "mo" : "yr"}
-            </span>
+        <div className="shrink-0 text-right">
+          <p className="font-medium">
+            {product.type === "TIP" && "From "}
+            {formatMoney(product.priceAmountMinor, product.currency)}
+            {product.type === "SUBSCRIPTION" && (
+              <span className="text-xs font-normal text-muted-foreground">
+                /{product.billingInterval === "MONTHLY" ? "mo" : "yr"}
+              </span>
+            )}
+          </p>
+          {shippingFeeMinor > 0 && (
+            <p className="text-xs text-muted-foreground">
+              + {formatMoney(shippingFeeMinor, product.currency)} shipping
+            </p>
           )}
-        </p>
+        </div>
       </div>
 
       <CheckoutForm
@@ -81,7 +89,7 @@ export default async function CheckoutPage({
         isPhysical={product.type === "PHYSICAL"}
         isTip={product.type === "TIP"}
         slots={slots.map((slot) => slot.toISOString())}
-        amountLabel={formatMoney(product.priceAmountMinor, product.currency)}
+        amountLabel={formatMoney(product.priceAmountMinor + shippingFeeMinor, product.currency)}
         suggestedTipAmount={product.type === "TIP" ? product.priceAmountMinor / 100 : undefined}
         currency={product.currency}
       />

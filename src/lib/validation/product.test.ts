@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productDetailsSchema, stockQuantitySchema } from "./product";
+import { productDetailsSchema, shippingFeeSchema, stockQuantitySchema } from "./product";
 
 describe("productDetailsSchema", () => {
   it("accepts a valid product and coerces price to a number", () => {
@@ -63,5 +63,41 @@ describe("stockQuantitySchema", () => {
     const result = stockQuantitySchema.safeParse("0");
     expect(result.success).toBe(true);
     if (result.success) expect(result.data).toBe(0);
+  });
+});
+
+describe("shippingFeeSchema", () => {
+  it("treats a blank string as free shipping (null)", () => {
+    const result = shippingFeeSchema.safeParse("");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBeNull();
+  });
+
+  it("treats a missing field as free shipping (null)", () => {
+    const result = shippingFeeSchema.safeParse(undefined);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBeNull();
+  });
+
+  it("coerces a numeric string to a number", () => {
+    const result = shippingFeeSchema.safeParse("49.5");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBe(49.5);
+  });
+
+  it("rejects a negative shipping fee", () => {
+    const result = shippingFeeSchema.safeParse("-1");
+    expect(result.success).toBe(false);
+  });
+
+  it("allows zero (an explicit free-shipping entry)", () => {
+    const result = shippingFeeSchema.safeParse("0");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBe(0);
+  });
+
+  it("rejects a fee over the 100,000 cap", () => {
+    const result = shippingFeeSchema.safeParse("100001");
+    expect(result.success).toBe(false);
   });
 });

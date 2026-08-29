@@ -9,7 +9,12 @@ import { getStorageDriver, buildProductFileKey, buildPublicAssetKey, assetKeyToU
 import { generateUniqueProductSlug } from "@/lib/slug";
 import { checkProductLimit } from "@/lib/plan-limits";
 import { toMinorUnits } from "@/lib/money";
-import { MAX_PRODUCT_FILE_BYTES, productDetailsSchema, stockQuantitySchema } from "@/lib/validation/product";
+import {
+  MAX_PRODUCT_FILE_BYTES,
+  productDetailsSchema,
+  stockQuantitySchema,
+  shippingFeeSchema,
+} from "@/lib/validation/product";
 import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_FILE_BYTES } from "@/lib/validation/store";
 import { bookingDurationSchema } from "@/lib/validation/booking";
 
@@ -87,12 +92,19 @@ export async function createProduct(
   }
 
   let stockQuantity: number | null = null;
+  let shippingFeeAmount: number | null = null;
   if (type === "PHYSICAL") {
     const stockValidation = stockQuantitySchema.safeParse(formData.get("stockQuantity"));
     if (!stockValidation.success) {
       return { errors: { stockQuantity: stockValidation.error.flatten().formErrors } };
     }
     stockQuantity = stockValidation.data;
+
+    const shippingValidation = shippingFeeSchema.safeParse(formData.get("shippingFee"));
+    if (!shippingValidation.success) {
+      return { errors: { shippingFee: shippingValidation.error.flatten().formErrors } };
+    }
+    shippingFeeAmount = shippingValidation.data;
   }
 
   const { title, description, priceAmount } = validatedFields.data;
@@ -113,6 +125,7 @@ export async function createProduct(
       billingInterval: type === "SUBSCRIPTION" ? billingInterval : null,
       bookingDurationMinutes,
       stockQuantity,
+      shippingFeeMinor: shippingFeeAmount === null ? null : toMinorUnits(shippingFeeAmount),
       status: "DRAFT",
     },
   });
@@ -172,12 +185,19 @@ export async function updateProductDetails(
   }
 
   let stockQuantity: number | null | undefined;
+  let shippingFeeAmount: number | null | undefined;
   if (product.type === "PHYSICAL") {
     const stockValidation = stockQuantitySchema.safeParse(formData.get("stockQuantity"));
     if (!stockValidation.success) {
       return { errors: { stockQuantity: stockValidation.error.flatten().formErrors } };
     }
     stockQuantity = stockValidation.data;
+
+    const shippingValidation = shippingFeeSchema.safeParse(formData.get("shippingFee"));
+    if (!shippingValidation.success) {
+      return { errors: { shippingFee: shippingValidation.error.flatten().formErrors } };
+    }
+    shippingFeeAmount = shippingValidation.data;
   }
 
   await db.product.update({
@@ -191,6 +211,9 @@ export async function updateProductDetails(
         : {}),
       ...(bookingDurationMinutes !== undefined ? { bookingDurationMinutes } : {}),
       ...(stockQuantity !== undefined ? { stockQuantity } : {}),
+      ...(shippingFeeAmount !== undefined
+        ? { shippingFeeMinor: shippingFeeAmount === null ? null : toMinorUnits(shippingFeeAmount) }
+        : {}),
     },
   });
 

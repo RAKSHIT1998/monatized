@@ -115,6 +115,24 @@ export function EditProductForm({ product }: { product: Product }) {
             )}
           </div>
 
+          {product.type === "PHYSICAL" && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="shippingFee">Shipping fee (optional)</Label>
+              <Input
+                id="shippingFee"
+                name="shippingFee"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Free"
+                defaultValue={product.shippingFeeMinor != null ? product.shippingFeeMinor / 100 : ""}
+              />
+              {state?.errors?.shippingFee && (
+                <p className="text-sm text-destructive">{state.errors.shippingFee[0]}</p>
+              )}
+            </div>
+          )}
+
           {product.type === "SUBSCRIPTION" && (
             <p className="text-xs text-muted-foreground">
               Changes only apply to new subscribers — existing members keep the price and billing

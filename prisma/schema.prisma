@@ -369,6 +369,11 @@ model Product {
   // only set for PHYSICAL products. Null = unlimited stock. Decremented
   // atomically at checkout (see startCheckout) and restored if the order fails.
   stockQuantity          Int?
+  // only meaningful for PHYSICAL products. Null/0 = free shipping. A flat fee
+  // added on top of the price at checkout — not multiplied by quantity (there
+  // is no multi-quantity checkout yet) and never discounted by a coupon,
+  // matching how shipping is excluded from the discount base below.
+  shippingFeeMinor       Int?
   coverImageUrl          String?
   status                 ProductStatus    @default(DRAFT)
   position               Int              @default(0)
@@ -529,6 +534,10 @@ model Order {
   currency               String      @default("INR")
   subtotalAmountMinor    Int
   discountAmountMinor    Int         @default(0)
+  // The product's shipping fee at checkout time, recorded separately from
+  // subtotalAmountMinor (like discountAmountMinor) so the receipt can show
+  // a real Subtotal/Shipping/Total breakdown rather than one opaque number.
+  shippingFeeAmountMinor Int         @default(0)
   totalAmountMinor       Int
   platformFeeAmountMinor Int         @default(0)
   // Physical fulfillment — only meaningful when the order contains a PHYSICAL

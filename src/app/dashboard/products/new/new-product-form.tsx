@@ -169,6 +169,23 @@ export function NewProductForm() {
             )}
           </div>
 
+          {type === "PHYSICAL" && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="shippingFee">Shipping fee (optional)</Label>
+              <Input
+                id="shippingFee"
+                name="shippingFee"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Free"
+              />
+              {state?.errors?.shippingFee && (
+                <p className="text-sm text-destructive">{state.errors.shippingFee[0]}</p>
+              )}
+            </div>
+          )}
+
           {type === "DIGITAL" && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="file">File customers receive</Label>
