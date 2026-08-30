@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
 import { updatePlanSchema } from "@/lib/validation/plan";
+import { getPaymentProvider } from "@/lib/payments";
+import { cancelPlatformSubscriptionRecord } from "@/lib/platform-subscriptions";
 
 export type AdminFormState =
   | {
@@ -59,4 +61,49 @@ export async function updatePlan(
 
   revalidatePath("/admin/plans");
   return {};
+}
+
+// A direct admin override — bypasses payment entirely. If the creator has an
+// active platform subscription, cancel it first (provider-side too,
+// best-effort) so they're never left being billed for a plan they no longer
+// have after an admin moves them elsewhere.
+export async function setCreatorPlan(creatorProfileId: string, planId: string) {
+  const admin = await requireAdmin();
+
+  const [creator, plan] = await Promise.all([
+    db.creatorProfile.findUnique({ where: { id: creatorProfileId } }),
+    db.plan.findUnique({ where: { id: planId } }),
+  ]);
+  if (!creator) throw new Error("Creator not found.");
+  if (!plan) throw new Error("Plan not found.");
+
+  const existingSubscription = await db.platformSubscription.findUnique({
+    where: { creatorProfileId },
+  });
+  if (existingSubscription && existingSubscription.status !== "CANCELLED") {
+    const provider = getPaymentProvider();
+    if (
+      existingSubscription.provider !== "MOCK" &&
+      existingSubscription.providerSubscriptionId &&
+      provider.cancelProviderSubscription
+    ) {
+      await provider.cancelProviderSubscription(existingSubscription.providerSubscriptionId);
+    }
+    await cancelPlatformSubscriptionRecord(existingSubscription.id);
+  }
+
+  await db.$transaction([
+    db.creatorProfile.update({ where: { id: creatorProfileId }, data: { planId } }),
+    db.auditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "creator.plan_changed",
+        targetType: "CreatorProfile",
+        targetId: creatorProfileId,
+        metadata: { fromPlanId: creator.planId, toPlanId: planId },
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/creators");
 }

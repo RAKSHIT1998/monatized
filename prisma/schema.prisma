@@ -137,21 +137,21 @@ enum CustomDomainStatus {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         UserRole @default(CREATOR)
+  id                          String    @id @default(cuid())
+  email                       String    @unique
+  passwordHash                String
+  name                        String
+  role                        UserRole  @default(CREATOR)
   // Bumping this invalidates every previously-issued session JWT for the user
   // (used on password change / logout-everywhere) without needing a session table.
-  tokenVersion Int      @default(0)
+  tokenVersion                Int       @default(0)
   // A hash of the reset token, never the raw value — same reasoning as a
   // password hash, so a DB leak alone can't be used to reset an account.
   // Both null once unused/consumed/expired.
   passwordResetTokenHash      String?
   passwordResetTokenExpiresAt DateTime?
-  createdAt                   DateTime @default(now())
-  updatedAt                   DateTime @updatedAt
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   creatorProfile CreatorProfile?
   auditLogs      AuditLog[]
@@ -171,7 +171,8 @@ model Plan {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  creatorProfiles CreatorProfile[]
+  creatorProfiles       CreatorProfile[]
+  platformSubscriptions PlatformSubscription[]
 }
 
 model CreatorProfile {
@@ -190,20 +191,22 @@ model CreatorProfile {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan            Plan             @relation(fields: [planId], references: [id])
-  theme           StoreTheme?
-  products        Product[]
-  customers       Customer[]
-  orders          Order[]
-  coupons         Coupon[]
-  subscriptions   Subscription[]
-  analyticsEvents AnalyticsEvent[]
-  posts           Post[]
-  affiliates      Affiliate[]
-  campaigns       Campaign[]
-  automations     Automation[]
-  customDomain    CustomDomain?
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 Plan                  @relation(fields: [planId], references: [id])
+  theme                StoreTheme?
+  products             Product[]
+  customers            Customer[]
+  orders               Order[]
+  coupons              Coupon[]
+  subscriptions        Subscription[]
+  analyticsEvents      AnalyticsEvent[]
+  posts                Post[]
+  affiliates           Affiliate[]
+  campaigns            Campaign[]
+  automations          Automation[]
+  customDomain         CustomDomain?
+  platformSubscription PlatformSubscription?
+  platformPayments     PlatformPayment[]
 }
 
 // One custom domain per creator. Verification proves domain ownership (a DNS
@@ -221,6 +224,54 @@ model CustomDomain {
   updatedAt         DateTime           @updatedAt
 
   creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+}
+
+// A creator's own recurring payment to the platform for their plan tier —
+// distinct from the buyer-facing Subscription model above (a creator selling
+// a subscription product to a customer). Reusing Order/Customer here would be
+// a semantic misfit: those model "a creator selling to a buyer," and a
+// creator paying Monetized isn't a sale to a customer. One at a time per
+// creator (creatorProfileId is unique) — switching plans while already on a
+// paid one cancels the old row and creates a fresh one, no proration.
+model PlatformSubscription {
+  id                     String             @id @default(cuid())
+  creatorProfileId       String             @unique
+  planId                 String
+  status                 SubscriptionStatus
+  provider               PaymentProvider
+  providerSubscriptionId String?
+  // Locked in at signup, same non-repricing rule as the buyer Subscription
+  // model — a later plan price change never silently reprices an existing
+  // paying creator.
+  unitAmountMinor        Int
+  currency               String
+  // Always monthly — Plan only has priceMonthlyMinor, no yearly platform
+  // pricing exists to bill on a different cadence.
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  creatorProfile CreatorProfile    @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  plan           Plan              @relation(fields: [planId], references: [id])
+  payments       PlatformPayment[]
+}
+
+// One row per successful charge (first charge + each renewal) of a
+// PlatformSubscription — lets admin analytics show cumulative platform-plan
+// revenue, not just a current-MRR snapshot.
+model PlatformPayment {
+  id                     String          @id @default(cuid())
+  platformSubscriptionId String
+  creatorProfileId       String
+  amountMinor            Int
+  currency               String
+  provider               PaymentProvider
+  providerPaymentId      String?
+  createdAt              DateTime        @default(now())
+
+  platformSubscription PlatformSubscription @relation(fields: [platformSubscriptionId], references: [id], onDelete: Cascade)
+  creatorProfile       CreatorProfile       @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
 }
 
 // A trigger→action rule. actionConfig shape depends on actionType:
@@ -544,23 +595,23 @@ model Customer {
 }
 
 model Order {
-  id                     String      @id @default(cuid())
-  orderNumber            String      @unique
+  id                     String            @id @default(cuid())
+  orderNumber            String            @unique
   creatorProfileId       String
   customerId             String
   couponId               String?
   affiliateId            String? // captured at checkout-start from the ?ref= cookie, see proxy.ts
   subscriptionId         String? // set for both the first charge and every renewal of a subscription
-  status                 OrderStatus @default(PENDING)
-  currency               String      @default("INR")
+  status                 OrderStatus       @default(PENDING)
+  currency               String            @default("INR")
   subtotalAmountMinor    Int
-  discountAmountMinor    Int         @default(0)
+  discountAmountMinor    Int               @default(0)
   // The product's shipping fee at checkout time, recorded separately from
   // subtotalAmountMinor (like discountAmountMinor) so the receipt can show
   // a real Subtotal/Shipping/Total breakdown rather than one opaque number.
-  shippingFeeAmountMinor Int         @default(0)
+  shippingFeeAmountMinor Int               @default(0)
   totalAmountMinor       Int
-  platformFeeAmountMinor Int         @default(0)
+  platformFeeAmountMinor Int               @default(0)
   // Physical fulfillment — only meaningful when the order contains a PHYSICAL
   // item (see markOrderPaid). shippingAddress shape: { name, line1, line2?,
   // city, state, postalCode, country }.
@@ -570,8 +621,8 @@ model Order {
   shippedAt              DateTime?
   // Optional supporter message, collected at checkout for TIP orders only.
   buyerNote              String?
-  createdAt              DateTime    @default(now())
-  updatedAt              DateTime    @updatedAt
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 
   creatorProfile    CreatorProfile     @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
   customer          Customer           @relation(fields: [customerId], references: [id])

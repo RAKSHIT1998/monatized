@@ -16,6 +16,11 @@ export type CheckoutResult = {
 
 export type CreateSubscriptionCheckoutParams = {
   subscriptionId: string;
+  // Which of our two recurring-billing systems this checkout is for — a
+  // buyer subscribing to a creator's product, or a creator paying for their
+  // own platform plan. Providers thread this into checkout metadata so the
+  // webhook handler can route the resulting events to the right one.
+  kind: "buyer" | "platform";
   productTitle: string;
   amountMinor: number;
   currency: string;

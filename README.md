@@ -53,10 +53,24 @@ to end.
   triggered it — same posture as automations.
 - **Analytics** — store views / product views / checkout starts / conversion
   rate, a revenue-over-time chart, top products by revenue.
-- **Admin panel** — platform overview (GMV, platform revenue, creators by
-  plan), all creators, all orders, and an editable plan/pricing table.
-- **Billing** — a creator-facing page showing their current plan, usage vs.
-  limit, and the other available plans.
+- **Admin panel** — platform overview (GMV, MRR split by revenue stream,
+  refund rate, average order value, a 30-day revenue trend chart, top
+  creators by revenue), searchable/paginated creators and orders lists (with
+  a status filter on orders), and an editable plan/pricing table. An admin
+  can also change any creator's plan directly, which cancels their platform
+  subscription (provider-side too) so they're never left being billed for a
+  plan they no longer have.
+- **Billing** — creators can actually pay for their own plan upgrade, not
+  just see one. `/dashboard/billing` shows the current plan, usage vs.
+  limit, and lets a creator upgrade/downgrade/cancel via a real recurring
+  payment — a second, parallel subscription system alongside the buyer-to-
+  creator one (`PlatformSubscription`/`PlatformPayment`), since a creator
+  paying the platform isn't a sale to a customer and doesn't fit the
+  Order/Customer model. Cancelling a real provider's subscription is
+  graceful (keeps the plan through the period already paid for; the actual
+  downgrade to Free happens when the provider's webhook confirms the
+  subscription ended) — MOCK has no external billing to wind down, so it
+  downgrades immediately.
 - **Plan-tier feature gating** — Automations, the AI growth engine, and
   custom domains are Pro-plan features (per the pricing table's own
   marketing copy), enforced at both the page (a locked "Upgrade" state

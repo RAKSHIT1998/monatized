@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CancelPlanButton, DowngradeButton, PlatformSimulateControls, UpgradeButton } from "./billing-actions";
 
 export const metadata: Metadata = {
   title: "Billing — Monetized",
@@ -15,12 +16,14 @@ export default async function BillingPage() {
   const user = await requireOnboardedCreator();
   const creatorProfileId = user.creatorProfile.id;
 
-  const [plans, productCount] = await Promise.all([
+  const [plans, productCount, platformSubscription] = await Promise.all([
     db.plan.findMany({ where: { isActive: true }, orderBy: { priceMonthlyMinor: "asc" } }),
     db.product.count({ where: { creatorProfileId } }),
+    db.platformSubscription.findUnique({ where: { creatorProfileId }, include: { plan: true } }),
   ]);
 
   const currentPlanId = user.creatorProfile.plan.id;
+  const hasLivePaidSubscription = platformSubscription && platformSubscription.status !== "CANCELLED";
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,11 +41,46 @@ export default async function BillingPage() {
               : `${productCount} of ${user.creatorProfile.plan.productLimit} products used`}
           </CardDescription>
         </CardHeader>
+        {hasLivePaidSubscription && (
+          <CardContent className="flex flex-col gap-3">
+            {platformSubscription.status === "PAST_DUE" && (
+              <p className="text-sm text-destructive">
+                Your last payment for {platformSubscription.plan.name} failed. Update your payment
+                method to keep your plan.
+              </p>
+            )}
+            {platformSubscription.status === "ACTIVE" && platformSubscription.cancelAtPeriodEnd && (
+              <p className="text-sm text-muted-foreground">
+                Your {platformSubscription.plan.name} plan ends on{" "}
+                {platformSubscription.currentPeriodEnd?.toLocaleDateString("en-IN", {
+                  dateStyle: "medium",
+                })}{" "}
+                — you&apos;ll move to Free after that.
+              </p>
+            )}
+            {platformSubscription.status === "ACTIVE" && !platformSubscription.cancelAtPeriodEnd && (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Renews{" "}
+                  {platformSubscription.currentPeriodEnd?.toLocaleDateString("en-IN", {
+                    dateStyle: "medium",
+                  })}{" "}
+                  — {formatMoney(platformSubscription.unitAmountMinor, platformSubscription.currency)}/mo
+                </p>
+                <CancelPlanButton />
+              </div>
+            )}
+            {platformSubscription.provider === "MOCK" && platformSubscription.status !== "CANCELLED" && (
+              <PlatformSimulateControls />
+            )}
+          </CardContent>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {plans.map((plan) => {
           const isCurrent = plan.id === currentPlanId;
+          const isFree = plan.priceMonthlyMinor === 0;
           const features = Array.isArray(plan.features) ? (plan.features as string[]) : [];
           return (
             <Card key={plan.id} className={cn(isCurrent && "ring-2 ring-primary")}>
@@ -52,9 +90,7 @@ export default async function BillingPage() {
                   {isCurrent && <Badge>Current</Badge>}
                 </div>
                 <CardDescription>
-                  {plan.priceMonthlyMinor === 0
-                    ? "Free"
-                    : `${formatMoney(plan.priceMonthlyMinor, plan.currency)}/mo`}
+                  {isFree ? "Free" : `${formatMoney(plan.priceMonthlyMinor, plan.currency)}/mo`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
@@ -64,6 +100,8 @@ export default async function BillingPage() {
                     {feature}
                   </div>
                 ))}
+                {!isCurrent &&
+                  (isFree ? <DowngradeButton /> : <UpgradeButton planId={plan.id} planName={plan.name} />)}
               </CardContent>
             </Card>
           );

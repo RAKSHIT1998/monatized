@@ -25,8 +25,9 @@ export class MockPaymentProvider implements PaymentProvider {
   async createSubscriptionCheckout(
     params: CreateSubscriptionCheckoutParams,
   ): Promise<SubscriptionCheckoutResult> {
+    const path = params.kind === "platform" ? "mock-platform-subscription" : "mock-subscription";
     return {
-      checkoutUrl: `/checkout/mock-subscription/${params.subscriptionId}`,
+      checkoutUrl: `/checkout/${path}/${params.subscriptionId}`,
       providerSubscriptionId: `mock_sub_${params.subscriptionId}`,
     };
   }

@@ -9,6 +9,13 @@ import {
   markSubscriptionPastDue,
   renewSubscription,
 } from "@/lib/subscriptions";
+import {
+  activatePlatformSubscription,
+  cancelPlatformSubscriptionRecord,
+  findPlatformSubscriptionByProviderId,
+  markPlatformSubscriptionPastDue,
+  renewPlatformSubscription,
+} from "@/lib/platform-subscriptions";
 import { db } from "@/lib/db";
 
 // As of this Stripe API version, Invoice no longer carries a top-level
@@ -43,7 +50,11 @@ export async function POST(request: NextRequest) {
         const providerSubscriptionId =
           typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
         if (subscriptionId && providerSubscriptionId) {
-          await activateSubscription(subscriptionId, providerSubscriptionId);
+          if (session.metadata?.kind === "platform") {
+            await activatePlatformSubscription(subscriptionId, providerSubscriptionId);
+          } else {
+            await activateSubscription(subscriptionId, providerSubscriptionId);
+          }
         }
       } else {
         const orderId = session.metadata?.orderId;
@@ -71,7 +82,12 @@ export async function POST(request: NextRequest) {
       // Only a renewal cycle — the very first invoice is handled by checkout.session.completed above.
       if (providerSubscriptionId && invoice.billing_reason === "subscription_cycle") {
         const subscription = await findSubscriptionByProviderId("STRIPE", providerSubscriptionId);
-        if (subscription) await renewSubscription(subscription.id);
+        if (subscription) {
+          await renewSubscription(subscription.id);
+        } else {
+          const platformSubscription = await findPlatformSubscriptionByProviderId("STRIPE", providerSubscriptionId);
+          if (platformSubscription) await renewPlatformSubscription(platformSubscription.id);
+        }
       }
       break;
     }
@@ -81,7 +97,12 @@ export async function POST(request: NextRequest) {
       const providerSubscriptionId = getInvoiceSubscriptionId(invoice);
       if (providerSubscriptionId) {
         const subscription = await findSubscriptionByProviderId("STRIPE", providerSubscriptionId);
-        if (subscription) await markSubscriptionPastDue(subscription.id);
+        if (subscription) {
+          await markSubscriptionPastDue(subscription.id);
+        } else {
+          const platformSubscription = await findPlatformSubscriptionByProviderId("STRIPE", providerSubscriptionId);
+          if (platformSubscription) await markPlatformSubscriptionPastDue(platformSubscription.id);
+        }
       }
       break;
     }
@@ -89,7 +110,12 @@ export async function POST(request: NextRequest) {
     case "customer.subscription.deleted": {
       const stripeSubscription = event.data.object as Stripe.Subscription;
       const subscription = await findSubscriptionByProviderId("STRIPE", stripeSubscription.id);
-      if (subscription) await cancelSubscriptionRecord(subscription.id);
+      if (subscription) {
+        await cancelSubscriptionRecord(subscription.id);
+      } else {
+        const platformSubscription = await findPlatformSubscriptionByProviderId("STRIPE", stripeSubscription.id);
+        if (platformSubscription) await cancelPlatformSubscriptionRecord(platformSubscription.id);
+      }
       break;
     }
 
@@ -101,6 +127,14 @@ export async function POST(request: NextRequest) {
           where: { id: subscription.id },
           data: { cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end },
         });
+      } else {
+        const platformSubscription = await findPlatformSubscriptionByProviderId("STRIPE", stripeSubscription.id);
+        if (platformSubscription) {
+          await db.platformSubscription.update({
+            where: { id: platformSubscription.id },
+            data: { cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end },
+          });
+        }
       }
       break;
     }

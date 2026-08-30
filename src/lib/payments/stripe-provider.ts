@@ -55,8 +55,8 @@ export class StripePaymentProvider implements PaymentProvider {
       customer_email: params.customerEmail,
       success_url: params.successUrl,
       cancel_url: params.cancelUrl,
-      metadata: { subscriptionId: params.subscriptionId },
-      subscription_data: { metadata: { subscriptionId: params.subscriptionId } },
+      metadata: { subscriptionId: params.subscriptionId, kind: params.kind },
+      subscription_data: { metadata: { subscriptionId: params.subscriptionId, kind: params.kind } },
       line_items: [
         {
           quantity: 1,

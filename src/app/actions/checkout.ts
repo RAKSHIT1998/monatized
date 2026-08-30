@@ -336,6 +336,7 @@ async function startSubscriptionCheckout(
   try {
     const result = await provider.createSubscriptionCheckout({
       subscriptionId: subscription.id,
+      kind: "buyer",
       productTitle: product.title,
       amountMinor: product.priceAmountMinor,
       currency: product.currency,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextPeriodEnd } from "./billing-cycle";
+import { monthlyEquivalent, nextPeriodEnd } from "./billing-cycle";
 
 describe("nextPeriodEnd", () => {
   it("adds one month", () => {
@@ -23,5 +23,19 @@ describe("nextPeriodEnd", () => {
   it("handles a leap-year February correctly", () => {
     const result = nextPeriodEnd(new Date("2028-01-29T00:00:00.000Z"), "MONTHLY");
     expect(result.toISOString().slice(0, 10)).toBe("2028-02-29");
+  });
+});
+
+describe("monthlyEquivalent", () => {
+  it("returns a monthly amount unchanged", () => {
+    expect(monthlyEquivalent(150000, "MONTHLY")).toBe(150000);
+  });
+
+  it("divides a yearly amount by 12", () => {
+    expect(monthlyEquivalent(120000, "YEARLY")).toBe(10000);
+  });
+
+  it("rounds a yearly amount that doesn't divide evenly", () => {
+    expect(monthlyEquivalent(100000, "YEARLY")).toBe(8333);
   });
 });
