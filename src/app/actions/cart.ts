@@ -16,6 +16,7 @@ import { cartLineSchema, parseCartItemsJson, type CartLineInput } from "@/lib/va
 import { MAX_CART_LINES } from "@/lib/cart-constants";
 import { startCheckoutSchema, shippingAddressSchema } from "@/lib/validation/checkout";
 import { getAppUrl } from "@/lib/app-url";
+import { decrementStockGuarded, type StockTarget } from "@/lib/stock";
 import type { CheckoutFormState } from "@/app/actions/checkout";
 
 // Thrown from inside the checkout $transaction when a cart line's stock ran
@@ -193,6 +194,8 @@ export async function startCartCheckout(
               titleSnapshot: item.title,
               priceAmountMinorSnapshot: item.unitPriceAmountMinor,
               quantity: item.quantity,
+              variantId: item.variantId,
+              variantLabel: item.variantLabel,
             })),
           },
           payment: {
@@ -206,14 +209,15 @@ export async function startCartCheckout(
       });
 
       // Same guarded-decrement pattern as startCheckout, generalized from
-      // decrementing 1 to decrementing this line's quantity.
+      // decrementing 1 to decrementing this line's quantity, and targeting
+      // the variant's own stock when the line has one.
       for (const item of pricing.items) {
         if (item.type === "PHYSICAL" && item.stockQuantity !== null) {
-          const stockResult = await tx.product.updateMany({
-            where: { id: item.productId, stockQuantity: { gte: item.quantity } },
-            data: { stockQuantity: { decrement: item.quantity } },
-          });
-          if (stockResult.count === 0) {
+          const target: StockTarget = item.variantId
+            ? { kind: "variant", id: item.variantId }
+            : { kind: "product", id: item.productId };
+          const ok = await decrementStockGuarded(tx, target, item.quantity);
+          if (!ok) {
             throw new CartOutOfStockError(item.title);
           }
         }

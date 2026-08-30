@@ -165,7 +165,14 @@ to end.
   which the buyer then sees on their receipt. An optional flat-rate shipping
   fee (blank = free) is added on top of the price at checkout — never
   multiplied by quantity or discounted by a coupon — and broken out as its own
-  line on the receipt, same convention real checkouts use.
+  line on the receipt, same convention real checkouts use. Creators can also
+  add a flat list of named options (e.g. Red/Blue/Green, or Small/Medium/
+  Large) with their own stock count each, from the product's dashboard page
+  — a lightweight alternative to full Shopify-style variants: options share
+  the product's one price, only stock is tracked per option. A product with
+  options shows a picker on its storefront page before "Add to cart"/"Buy
+  now"; the guarded stock decrement targets whichever option was picked
+  instead of the product as a whole.
 - **Cart & multi-item checkout** — buyers can add several Digital/Course/
   Physical products from the same creator's store to a cart (stored in
   `localStorage`, since there's no buyer login system) and pay for them in

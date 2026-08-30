@@ -368,6 +368,8 @@ model Product {
   bookingDurationMinutes Int?
   // only set for PHYSICAL products. Null = unlimited stock. Decremented
   // atomically at checkout (see startCheckout) and restored if the order fails.
+  // Ignored once the product has variants (see ProductVariant) — each
+  // variant then owns its own stock count instead.
   stockQuantity          Int?
   // only meaningful for PHYSICAL products. Null/0 = free shipping. A flat fee
   // added on top of the price at checkout — not multiplied by an item's
@@ -390,8 +392,27 @@ model Product {
   analyticsEvents   AnalyticsEvent[]
   availabilityRules AvailabilityRule[]
   bookings          Booking[]
+  variants          ProductVariant[]
 
   @@unique([creatorProfileId, slug])
+}
+
+// Lightweight product options (e.g. "Red", "Small") for PHYSICAL products —
+// a single flat list, not a Shopify-style multi-axis option matrix. Shares
+// the product's one price; only stock is tracked per variant.
+model ProductVariant {
+  id            String   @id @default(cuid())
+  productId     String
+  label         String
+  // Null = unlimited stock, same convention as Product.stockQuantity.
+  stockQuantity Int?
+  position      Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([productId, label])
 }
 
 // A weekly-recurring availability window for a BOOKING product, in UTC minutes-from-midnight.
@@ -617,15 +638,20 @@ model Coupon {
 }
 
 model OrderItem {
-  id                       String @id @default(cuid())
+  id                       String  @id @default(cuid())
   orderId                  String
   productId                String
   titleSnapshot            String
   priceAmountMinorSnapshot Int
-  quantity                 Int    @default(1)
+  quantity                 Int     @default(1)
+  variantId                String?
+  // Snapshot, same posture as titleSnapshot — survives the variant being
+  // renamed or deleted later.
+  variantLabel             String?
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 }
 
 model Payment {

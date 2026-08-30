@@ -6,6 +6,7 @@ import { runAutomations } from "@/lib/automations";
 import { getEmailProvider } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { formatMoney } from "@/lib/money";
+import { restoreStock } from "@/lib/stock";
 
 export function generateOrderNumber() {
   return `MON-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -168,15 +169,35 @@ async function sendOrderConfirmationEmail(order: {
 export async function markOrderFailed(orderId: string) {
   const order = await db.order.findUnique({
     where: { id: orderId },
-    select: { status: true, items: { include: { product: { select: { id: true, type: true, stockQuantity: true } } } } },
+    select: {
+      status: true,
+      items: {
+        select: {
+          quantity: true,
+          variantId: true,
+          product: { select: { id: true, type: true, stockQuantity: true } },
+          variant: { select: { stockQuantity: true } },
+        },
+      },
+    },
   });
   if (!order || order.status === "PAID") return; // never regress a completed order
 
-  // Mirror image of the optimistic decrement in startCheckout — an order that
-  // never got paid never actually took the unit, so give it back.
-  const physicalItemsWithLimitedStock = order.items.filter(
-    (item) => item.product.type === "PHYSICAL" && item.product.stockQuantity !== null,
-  );
+  // Mirror image of the optimistic decrement in startCheckout/startCartCheckout
+  // — an order that never got paid never actually took the unit, so give it
+  // back to whichever row actually owns the stock: the variant when the item
+  // has one, otherwise the product.
+  const restoreOps = order.items
+    .filter((item) => item.product.type === "PHYSICAL")
+    .map((item) => {
+      if (item.variantId) {
+        if (!item.variant || item.variant.stockQuantity === null) return null;
+        return restoreStock(db, { kind: "variant", id: item.variantId }, item.quantity);
+      }
+      if (item.product.stockQuantity === null) return null;
+      return restoreStock(db, { kind: "product", id: item.product.id }, item.quantity);
+    })
+    .filter((op) => op !== null);
 
   await db.$transaction([
     db.order.update({ where: { id: orderId }, data: { status: "FAILED" } }),
@@ -184,11 +205,6 @@ export async function markOrderFailed(orderId: string) {
     // A booking hold for an order that never got paid was never a real
     // confirmation anyone saw — delete it outright to free the calendar slot.
     db.booking.deleteMany({ where: { orderId } }),
-    ...physicalItemsWithLimitedStock.map((item) =>
-      db.product.update({
-        where: { id: item.product.id },
-        data: { stockQuantity: { increment: item.quantity } },
-      }),
-    ),
+    ...restoreOps,
   ]);
 }

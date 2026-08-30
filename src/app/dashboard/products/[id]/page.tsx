@@ -11,6 +11,7 @@ import { SubscribersPanel } from "./subscribers-panel";
 import { AvailabilityPanel } from "./availability-panel";
 import { BookingsPanel } from "./bookings-panel";
 import { TipsPanel } from "./tips-panel";
+import { VariantsPanel } from "./variants-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default async function EditProductPage({
         include: { customer: { select: { email: true } } },
       },
       availabilityRules: { orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }] },
+      variants: { orderBy: { position: "asc" } },
       bookings: {
         where: { order: { status: "PAID" } },
         orderBy: { startsAt: "desc" },
@@ -74,6 +76,16 @@ export default async function EditProductPage({
 
       <ProductCoverUploader productId={product.id} coverImageUrl={product.coverImageUrl} />
       <EditProductForm product={product} />
+      {product.type === "PHYSICAL" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Options</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VariantsPanel productId={product.id} variants={product.variants} />
+          </CardContent>
+        </Card>
+      )}
       {product.type === "COURSE" && (
         <CourseCurriculum productId={product.id} modules={product.modules} />
       )}

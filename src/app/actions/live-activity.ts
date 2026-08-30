@@ -32,7 +32,7 @@ export async function getRecentPaidOrdersSince(sinceIso: string): Promise<Recent
       totalAmountMinor: true,
       currency: true,
       customer: { select: { email: true } },
-      items: { select: { titleSnapshot: true }, orderBy: { id: "asc" }, take: 1 },
+      items: { select: { titleSnapshot: true, variantLabel: true }, orderBy: { id: "asc" }, take: 1 },
       _count: { select: { items: true } },
     },
   });
@@ -41,6 +41,7 @@ export async function getRecentPaidOrdersSince(sinceIso: string): Promise<Recent
     id: order.id,
     productTitle:
       (order.items[0]?.titleSnapshot ?? "a product") +
+      (order.items[0]?.variantLabel ? ` — ${order.items[0].variantLabel}` : "") +
       (order._count.items > 1 ? ` + ${order._count.items - 1} more` : ""),
     amountMinor: order.totalAmountMinor,
     currency: order.currency,

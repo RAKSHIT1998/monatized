@@ -13,8 +13,12 @@ export type CartPricingLine = {
   unitPriceAmountMinor: number;
   quantity: number;
   lineTotalAmountMinor: number;
+  // The stock count that actually applies to this line — the variant's own
+  // count when variantId is set, otherwise the product's.
   stockQuantity: number | null;
   shippingFeeMinor: number | null;
+  variantId?: string;
+  variantLabel?: string;
 };
 
 export type CartPricing = {

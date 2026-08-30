@@ -21,6 +21,7 @@ import { startCheckoutSchema, shippingAddressSchema, tipAmountSchema } from "@/l
 import { bookingSlotSelectionSchema } from "@/lib/validation/booking";
 import { toMinorUnits } from "@/lib/money";
 import { getAppUrl } from "@/lib/app-url";
+import { decrementStockGuarded, type StockTarget } from "@/lib/stock";
 import type { Product } from "@/generated/prisma/client";
 
 export type CheckoutFormState =
@@ -55,7 +56,7 @@ export async function startCheckout(
 
   const product = await db.product.findFirst({
     where: { slug, status: "PUBLISHED", creatorProfile: { username } },
-    include: { creatorProfile: { include: { plan: true } } },
+    include: { creatorProfile: { include: { plan: true } }, variants: true },
   });
   if (!product) {
     return { message: "This product is no longer available." };
@@ -99,9 +100,27 @@ export async function startCheckout(
   }
 
   let shippingAddress: z.infer<typeof shippingAddressSchema> | null = null;
+  let variantLabel: string | null = null;
+  let stockTarget: StockTarget | null = null;
   if (product.type === "PHYSICAL") {
-    if (product.stockQuantity !== null && product.stockQuantity <= 0) {
-      return { message: "This item is sold out." };
+    if (product.variants.length > 0) {
+      const variantId = String(formData.get("variantId") ?? "");
+      const variant = product.variants.find((v) => v.id === variantId);
+      if (!variant) {
+        return { message: "Pick an option on the product page first." };
+      }
+      if (variant.stockQuantity !== null && variant.stockQuantity <= 0) {
+        return { message: "That option is sold out." };
+      }
+      variantLabel = variant.label;
+      stockTarget = { kind: "variant", id: variant.id };
+    } else {
+      if (product.stockQuantity !== null && product.stockQuantity <= 0) {
+        return { message: "This item is sold out." };
+      }
+      if (product.stockQuantity !== null) {
+        stockTarget = { kind: "product", id: product.id };
+      }
     }
     const shippingValidation = shippingAddressSchema.safeParse({
       name: formData.get("shippingName"),
@@ -181,6 +200,8 @@ export async function startCheckout(
               productId: product.id,
               titleSnapshot: product.title,
               priceAmountMinorSnapshot: tipAmountMinor ?? product.priceAmountMinor,
+              variantId: stockTarget?.kind === "variant" ? stockTarget.id : undefined,
+              variantLabel,
             },
           },
           payment: {
@@ -211,15 +232,13 @@ export async function startCheckout(
       }
 
       // Same pattern as the booking slot reservation above: decrement stock
-      // right away, guarded by the `gt: 0` condition so two concurrent buyers
-      // can never both win the last unit. A failed/abandoned checkout later
+      // right away, guarded so two concurrent buyers can never both win the
+      // last unit — targeting the variant's own stock when the product has
+      // one, otherwise the product's. A failed/abandoned checkout later
       // restores it via markOrderFailed.
-      if (product.type === "PHYSICAL" && product.stockQuantity !== null) {
-        const stockResult = await tx.product.updateMany({
-          where: { id: product.id, stockQuantity: { gt: 0 } },
-          data: { stockQuantity: { decrement: 1 } },
-        });
-        if (stockResult.count === 0) {
+      if (stockTarget) {
+        const ok = await decrementStockGuarded(tx, stockTarget, 1);
+        if (!ok) {
           throw new OutOfStockError();
         }
       }

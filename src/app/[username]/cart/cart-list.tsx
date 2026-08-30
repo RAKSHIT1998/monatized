@@ -60,8 +60,12 @@ export function CartList({ username, accent }: { username: string; accent: strin
       <div className="flex flex-col gap-3">
         {pricing.items.map((item) => {
           const maxQty = item.stockQuantity ?? Infinity;
+          const displayName = item.variantLabel ? `${item.title} — ${item.variantLabel}` : item.title;
           return (
-            <div key={item.productId} className="flex items-center gap-3 rounded-xl border p-3">
+            <div
+              key={`${item.productId}:${item.variantId ?? ""}`}
+              className="flex items-center gap-3 rounded-xl border p-3"
+            >
               <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                 {item.coverImageUrl ? (
                   <Image
@@ -78,7 +82,7 @@ export function CartList({ username, accent }: { username: string; accent: strin
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{item.title}</p>
+                <p className="truncate font-medium">{displayName}</p>
                 <p className="text-sm text-muted-foreground">
                   {formatMoney(item.unitPriceAmountMinor, pricing.currency)}
                   {item.type === "PHYSICAL" && item.stockQuantity !== null && (
@@ -91,9 +95,9 @@ export function CartList({ username, accent }: { username: string; accent: strin
                   type="button"
                   size="icon-sm"
                   variant="outline"
-                  aria-label={`Decrease quantity of ${item.title}`}
+                  aria-label={`Decrease quantity of ${displayName}`}
                   disabled={item.quantity <= 1}
-                  onClick={() => setQuantity(username, item.productId, item.quantity - 1)}
+                  onClick={() => setQuantity(username, item.productId, item.quantity - 1, item.variantId)}
                 >
                   <Minus />
                 </Button>
@@ -102,9 +106,9 @@ export function CartList({ username, accent }: { username: string; accent: strin
                   type="button"
                   size="icon-sm"
                   variant="outline"
-                  aria-label={`Increase quantity of ${item.title}`}
+                  aria-label={`Increase quantity of ${displayName}`}
                   disabled={item.quantity >= maxQty}
-                  onClick={() => setQuantity(username, item.productId, item.quantity + 1)}
+                  onClick={() => setQuantity(username, item.productId, item.quantity + 1, item.variantId)}
                 >
                   <Plus />
                 </Button>
@@ -113,8 +117,8 @@ export function CartList({ username, accent }: { username: string; accent: strin
                   size="icon-sm"
                   variant="ghost"
                   className="ml-1 text-destructive"
-                  aria-label={`Remove ${item.title} from cart`}
-                  onClick={() => removeFromCart(username, item.productId)}
+                  aria-label={`Remove ${displayName} from cart`}
+                  onClick={() => removeFromCart(username, item.productId, item.variantId)}
                 >
                   <Trash2 />
                 </Button>

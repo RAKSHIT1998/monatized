@@ -96,6 +96,7 @@ export default async function OrderPage({
                   <div key={item.id} className="flex items-baseline justify-between gap-3">
                     <span className="truncate">
                       {item.quantity}x {item.titleSnapshot}
+                      {item.variantLabel && ` — ${item.variantLabel}`}
                     </span>
                     <span className="shrink-0 tabular-nums">
                       {formatMoney(item.priceAmountMinorSnapshot * item.quantity, order.currency)}
@@ -131,6 +132,7 @@ export default async function OrderPage({
                   <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
                     <span className="font-medium">
                       {item.quantity}x {item.titleSnapshot}
+                      {item.variantLabel && ` — ${item.variantLabel}`}
                     </span>
                     <span className="text-sm text-muted-foreground">
                       {formatMoney(item.priceAmountMinorSnapshot * item.quantity, order.currency)}

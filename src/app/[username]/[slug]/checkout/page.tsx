@@ -1,9 +1,11 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { getAvailableSlotsForProduct } from "@/lib/bookings";
+import { isProductSoldOut } from "@/lib/stock";
 import { CheckoutForm } from "./checkout-form";
 
 export const metadata: Metadata = {
@@ -13,26 +15,45 @@ export const metadata: Metadata = {
 async function getCheckoutProduct(username: string, slug: string) {
   return db.product.findFirst({
     where: { slug, status: "PUBLISHED", creatorProfile: { username } },
-    include: { creatorProfile: true },
+    include: { creatorProfile: true, variants: true },
   });
 }
 
 export default async function CheckoutPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ username: string; slug: string }>;
+  searchParams: Promise<{ variant?: string }>;
 }) {
   const { username, slug } = await params;
+  const { variant: variantIdParam } = await searchParams;
   const product = await getCheckoutProduct(username, slug);
   if (!product) notFound();
 
-  const isSoldOut =
-    product.type === "PHYSICAL" && product.stockQuantity !== null && product.stockQuantity <= 0;
-  if (isSoldOut) {
+  if (isProductSoldOut(product)) {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-2 px-4 py-12 text-center">
         <p className="text-lg font-medium">This item is sold out.</p>
         <p className="text-sm text-muted-foreground">Check back later — it might restock.</p>
+      </div>
+    );
+  }
+
+  const selectedVariant =
+    product.type === "PHYSICAL" && product.variants.length > 0
+      ? product.variants.find((v) => v.id === variantIdParam)
+      : undefined;
+  if (product.type === "PHYSICAL" && product.variants.length > 0 && !selectedVariant) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+        <p className="text-lg font-medium">Pick an option first.</p>
+        <p className="text-sm text-muted-foreground">
+          <Link href={`/${username}/${slug}`} className="underline">
+            Go back to the product page
+          </Link>{" "}
+          and choose an option before checking out.
+        </p>
       </div>
     );
   }
@@ -60,7 +81,10 @@ export default async function CheckoutPage({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{product.title}</p>
+          <p className="truncate font-medium">
+            {product.title}
+            {selectedVariant && ` — ${selectedVariant.label}`}
+          </p>
           <p className="text-sm text-muted-foreground">by {product.creatorProfile.displayName}</p>
         </div>
         <div className="shrink-0 text-right">
@@ -92,6 +116,7 @@ export default async function CheckoutPage({
         amountLabel={formatMoney(product.priceAmountMinor + shippingFeeMinor, product.currency)}
         suggestedTipAmount={product.type === "TIP" ? product.priceAmountMinor / 100 : undefined}
         currency={product.currency}
+        variantId={selectedVariant?.id}
       />
     </div>
   );

@@ -20,6 +20,7 @@ export function CheckoutForm({
   amountLabel,
   suggestedTipAmount,
   currency = "INR",
+  variantId,
 }: {
   username: string;
   slug: string;
@@ -31,6 +32,7 @@ export function CheckoutForm({
   amountLabel: string;
   suggestedTipAmount?: number;
   currency?: string;
+  variantId?: string;
 }) {
   const [state, formAction, pending] = useActionState(startCheckout, undefined);
   const [couponInput, setCouponInput] = useState("");
@@ -92,6 +94,7 @@ export function CheckoutForm({
           <input type="hidden" name="username" value={username} />
           <input type="hidden" name="slug" value={slug} />
           <input type="hidden" name="couponCode" value={couponInput} />
+          {variantId && <input type="hidden" name="variantId" value={variantId} />}
           {isBooking && <input type="hidden" name="startsAt" value={selectedSlot} />}
           {isTip && <input type="hidden" name="tipAmount" value={tipAmountValue ?? ""} />}
           {isPhysical && <input type="hidden" name="shippingName" value={nameInput} />}

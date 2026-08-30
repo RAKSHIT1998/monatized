@@ -79,16 +79,22 @@ export function CartCheckoutForm({ username }: { username: string }) {
           <input
             type="hidden"
             name="cartItemsJson"
-            value={JSON.stringify(localCart.map(({ productId, quantity }) => ({ productId, quantity })))}
+            value={JSON.stringify(
+              localCart.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
+            )}
           />
           <input type="hidden" name="couponCode" value={couponInput} />
           {pricing.needsShippingAddress && <input type="hidden" name="shippingName" value={nameInput} />}
 
           <div className="flex flex-col gap-1.5 border-b pb-4 text-sm">
             {pricing.items.map((item) => (
-              <div key={item.productId} className="flex items-baseline justify-between gap-3">
+              <div
+                key={`${item.productId}:${item.variantId ?? ""}`}
+                className="flex items-baseline justify-between gap-3"
+              >
                 <span className="truncate">
                   {item.quantity}x {item.title}
+                  {item.variantLabel && ` — ${item.variantLabel}`}
                 </span>
                 <span className="shrink-0 tabular-nums text-muted-foreground">
                   {formatMoney(item.lineTotalAmountMinor, pricing.currency)}

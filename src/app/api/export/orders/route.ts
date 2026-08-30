@@ -37,7 +37,10 @@ export async function GET() {
     order.createdAt.toISOString(),
     order.customer.email,
     order.items
-      .map((i) => (i.quantity > 1 ? `${i.quantity}x ${i.titleSnapshot}` : i.titleSnapshot))
+      .map((i) => {
+        const name = i.variantLabel ? `${i.titleSnapshot} — ${i.variantLabel}` : i.titleSnapshot;
+        return i.quantity > 1 ? `${i.quantity}x ${name}` : name;
+      })
       .join("; "),
     formatMoney(order.totalAmountMinor, order.currency),
     order.status,

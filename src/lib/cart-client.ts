@@ -1,6 +1,14 @@
 import { MAX_CART_LINES, MAX_CART_LINE_QUANTITY } from "@/lib/cart-constants";
 
-export type CartLine = { productId: string; slug: string; quantity: number };
+export type CartLine = { productId: string; slug: string; variantId?: string; quantity: number };
+
+// Two lines match (for merging on add, or targeting on remove/update) when
+// both productId AND variantId agree — a product can appear as several
+// cart lines at once if it has variants (1 Red + 1 Blue is two lines, not
+// one merged line of 2).
+function sameLine(line: CartLine, productId: string, variantId?: string) {
+  return line.productId === productId && line.variantId === variantId;
+}
 
 const CART_CHANGE_EVENT = "cart:change";
 
@@ -21,6 +29,7 @@ export function getCart(username: string): CartLine[] {
       (line): line is CartLine =>
         typeof line?.productId === "string" &&
         typeof line?.slug === "string" &&
+        (line.variantId === undefined || typeof line.variantId === "string") &&
         typeof line?.quantity === "number" &&
         line.quantity > 0,
     );
@@ -40,32 +49,42 @@ function writeCart(username: string, lines: CartLine[]) {
 
 export function addToCart(
   username: string,
-  item: { productId: string; slug: string },
+  item: { productId: string; slug: string; variantId?: string },
   quantity = 1,
 ): void {
   const lines = getCart(username);
-  const existing = lines.find((line) => line.productId === item.productId);
+  const existing = lines.find((line) => sameLine(line, item.productId, item.variantId));
   if (existing) {
     existing.quantity = Math.min(existing.quantity + quantity, MAX_CART_LINE_QUANTITY);
   } else if (lines.length < MAX_CART_LINES) {
-    lines.push({ productId: item.productId, slug: item.slug, quantity: Math.min(quantity, MAX_CART_LINE_QUANTITY) });
+    lines.push({
+      productId: item.productId,
+      slug: item.slug,
+      variantId: item.variantId,
+      quantity: Math.min(quantity, MAX_CART_LINE_QUANTITY),
+    });
   }
   writeCart(username, lines);
 }
 
-export function removeFromCart(username: string, productId: string): void {
+export function removeFromCart(username: string, productId: string, variantId?: string): void {
   writeCart(
     username,
-    getCart(username).filter((line) => line.productId !== productId),
+    getCart(username).filter((line) => !sameLine(line, productId, variantId)),
   );
 }
 
-export function setQuantity(username: string, productId: string, quantity: number): void {
+export function setQuantity(
+  username: string,
+  productId: string,
+  quantity: number,
+  variantId?: string,
+): void {
   const clamped = Math.max(1, Math.min(quantity, MAX_CART_LINE_QUANTITY));
   writeCart(
     username,
     getCart(username).map((line) =>
-      line.productId === productId ? { ...line, quantity: clamped } : line,
+      sameLine(line, productId, variantId) ? { ...line, quantity: clamped } : line,
     ),
   );
 }

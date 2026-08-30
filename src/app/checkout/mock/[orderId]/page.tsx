@@ -38,6 +38,7 @@ export default async function MockCheckoutPage({
           <div className="rounded-lg border p-3">
             <p className="text-sm text-muted-foreground">
               {order.items[0]?.titleSnapshot}
+              {order.items[0]?.variantLabel && ` — ${order.items[0].variantLabel}`}
               {order.items.length > 1 && ` + ${order.items.length - 1} more`}
             </p>
             <p className="text-lg font-semibold">

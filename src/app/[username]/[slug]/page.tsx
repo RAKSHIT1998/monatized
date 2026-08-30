@@ -8,8 +8,10 @@ import { formatMoney } from "@/lib/money";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isCartEligibleType } from "@/lib/cart-constants";
+import { isProductSoldOut } from "@/lib/stock";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { CartBadge } from "@/components/storefront/cart-badge";
+import { PhysicalVariantPicker } from "@/components/storefront/physical-variant-picker";
 
 async function getPublishedProduct(username: string, slug: string) {
   return db.product.findFirst({
@@ -20,6 +22,7 @@ async function getPublishedProduct(username: string, slug: string) {
         orderBy: { position: "asc" },
         include: { lessons: { orderBy: { position: "asc" }, select: { id: true, title: true } } },
       },
+      variants: { orderBy: { position: "asc" } },
     },
   });
 }
@@ -56,9 +59,13 @@ export default async function ProductPage({
   await recordStoreView(product.creatorProfileId, product.id);
 
   const accent = product.creatorProfile.theme?.primaryColor ?? "#111111";
-  const isSoldOut = product.type === "PHYSICAL" && product.stockQuantity !== null && product.stockQuantity <= 0;
+  const hasVariants = product.type === "PHYSICAL" && product.variants.length > 0;
+  const isSoldOut = product.type === "PHYSICAL" && isProductSoldOut(product);
+  // Each variant shows its own stock hint in the picker instead of this
+  // aggregate one.
   const isLowStock =
     product.type === "PHYSICAL" &&
+    !hasVariants &&
     product.stockQuantity !== null &&
     product.stockQuantity > 0 &&
     product.stockQuantity <= 5;
@@ -148,6 +155,14 @@ export default async function ProductPage({
         >
           Sold out
         </span>
+      ) : hasVariants ? (
+        <PhysicalVariantPicker
+          username={username}
+          slug={slug}
+          productId={product.id}
+          accent={accent}
+          variants={product.variants}
+        />
       ) : isCartEligibleType(product.type) ? (
         <div className="flex gap-2">
           <AddToCartButton

@@ -83,7 +83,10 @@ export default async function OrdersPage() {
                     <TableCell>{order.customer.email}</TableCell>
                     <TableCell>
                       {order.items
-                        .map((i) => (i.quantity > 1 ? `${i.quantity}x ${i.titleSnapshot}` : i.titleSnapshot))
+                        .map((i) => {
+                          const name = i.variantLabel ? `${i.titleSnapshot} — ${i.variantLabel}` : i.titleSnapshot;
+                          return i.quantity > 1 ? `${i.quantity}x ${name}` : name;
+                        })
                         .join(", ")}
                     </TableCell>
                     <TableCell>{formatMoney(order.totalAmountMinor, order.currency)}</TableCell>

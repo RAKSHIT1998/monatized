@@ -21,36 +21,58 @@ export async function buildCartPricing(
   });
   if (!creatorProfile) return { ...EMPTY_CART_PRICING };
 
-  const quantityByProductId = new Map(requested.map((line) => [line.productId, line.quantity]));
+  const productIds = [...new Set(requested.map((line) => line.productId))];
 
   const products = await db.product.findMany({
     where: {
-      id: { in: [...quantityByProductId.keys()] },
+      id: { in: productIds },
       creatorProfileId: creatorProfile.id,
       status: "PUBLISHED",
       type: { in: [...CART_ELIGIBLE_PRODUCT_TYPES] },
     },
-    // `id: {in: [...]}` doesn't preserve the input array's order — sort
-    // explicitly so "first item" (used for the combined checkout title) is
-    // stable rather than whatever order the DB happens to return.
-    orderBy: { createdAt: "asc" },
+    include: { variants: true },
   });
+  const productById = new Map(products.map((product) => [product.id, product]));
 
-  const items: CartPricingLine[] = products.map((product) => {
-    const quantity = quantityByProductId.get(product.id)!;
-    return {
+  // Two requested lines can share a productId when they're different
+  // variants of the same product (1 Red + 1 Blue) — so this resolves each
+  // requested line independently rather than mapping products 1:1.
+  const items: CartPricingLine[] = [];
+  let droppedCount = 0;
+  for (const line of requested) {
+    const product = productById.get(line.productId);
+    if (!product) {
+      droppedCount++;
+      continue;
+    }
+
+    let stockQuantity = product.stockQuantity;
+    let variantLabel: string | undefined;
+    if (line.variantId) {
+      const variant = product.variants.find((v) => v.id === line.variantId);
+      if (!variant) {
+        droppedCount++;
+        continue;
+      }
+      stockQuantity = variant.stockQuantity;
+      variantLabel = variant.label;
+    }
+
+    items.push({
       productId: product.id,
       slug: product.slug,
       title: product.title,
       type: product.type as CartEligibleProductType,
       coverImageUrl: product.coverImageUrl,
       unitPriceAmountMinor: product.priceAmountMinor,
-      quantity,
-      lineTotalAmountMinor: product.priceAmountMinor * quantity,
-      stockQuantity: product.stockQuantity,
+      quantity: line.quantity,
+      lineTotalAmountMinor: product.priceAmountMinor * line.quantity,
+      stockQuantity,
       shippingFeeMinor: product.shippingFeeMinor,
-    };
-  });
+      variantId: line.variantId,
+      variantLabel,
+    });
+  }
 
   const subtotalAmountMinor = items.reduce((sum, item) => sum + item.lineTotalAmountMinor, 0);
   // Once per distinct physical line, never multiplied by that line's quantity
@@ -66,6 +88,6 @@ export async function buildCartPricing(
     subtotalAmountMinor,
     shippingFeeAmountMinor,
     needsShippingAddress: items.some((item) => item.type === "PHYSICAL"),
-    droppedCount: quantityByProductId.size - items.length,
+    droppedCount,
   };
 }

@@ -11,11 +11,15 @@ export function AddToCartButton({
   username,
   productId,
   slug,
+  variantId,
+  disabled,
   className,
 }: {
   username: string;
   productId: string;
   slug: string;
+  variantId?: string;
+  disabled?: boolean;
   className?: string;
 }) {
   const router = useRouter();
@@ -25,9 +29,10 @@ export function AddToCartButton({
       type="button"
       size="lg"
       variant="outline"
+      disabled={disabled}
       className={cn("w-full", className)}
       onClick={() => {
-        addToCart(username, { productId, slug });
+        addToCart(username, { productId, slug, variantId });
         toast.success("Added to cart", {
           action: {
             label: "View cart",

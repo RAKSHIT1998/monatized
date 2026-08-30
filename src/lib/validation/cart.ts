@@ -3,6 +3,7 @@ import { MAX_CART_LINES, MAX_CART_LINE_QUANTITY } from "@/lib/cart-constants";
 
 export const cartLineSchema = z.object({
   productId: z.string().min(1),
+  variantId: z.string().min(1).optional(),
   quantity: z.coerce.number().int().min(1).max(MAX_CART_LINE_QUANTITY),
 });
 
