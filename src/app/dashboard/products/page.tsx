@@ -50,6 +50,7 @@ export default async function ProductsPage() {
           modules: true,
           subscriptions: true,
           bookings: true,
+          variants: true,
         },
       },
     },
@@ -131,7 +132,11 @@ export default async function ProductsPage() {
                       {product.type === "BOOKING" &&
                         `${product._count.bookings} booking${product._count.bookings === 1 ? "" : "s"}`}
                       {product.type === "PHYSICAL" &&
-                        (product.stockQuantity === null ? "Unlimited stock" : `${product.stockQuantity} in stock`)}
+                        (product._count.variants > 0
+                          ? `${product._count.variants} option${product._count.variants === 1 ? "" : "s"}`
+                          : product.stockQuantity === null
+                            ? "Unlimited stock"
+                            : `${product.stockQuantity} in stock`)}
                       {product.type === "TIP" &&
                         `${product._count.orderItems} tip${product._count.orderItems === 1 ? "" : "s"}`}
                     </TableCell>
