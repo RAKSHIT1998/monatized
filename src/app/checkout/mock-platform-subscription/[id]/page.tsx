@@ -41,6 +41,23 @@ export default async function MockPlatformSubscriptionCheckoutPage({
               {formatMoney(subscription.unitAmountMinor, subscription.currency)}
               <span className="text-sm font-normal text-muted-foreground"> / month</span>
             </p>
+            {subscription.pendingChargeMinor !== null && (
+              <div className="mt-3 flex flex-col gap-1 border-t pt-3 text-sm">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Credit for unused time on your current plan</span>
+                  <span>
+                    -{formatMoney(
+                      subscription.unitAmountMinor - subscription.pendingChargeMinor,
+                      subscription.currency,
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Due today</span>
+                  <span>{formatMoney(subscription.pendingChargeMinor, subscription.currency)}</span>
+                </div>
+              </div>
+            )}
           </div>
           <MockPlatformSubscriptionActions platformSubscriptionId={subscription.id} />
         </CardContent>

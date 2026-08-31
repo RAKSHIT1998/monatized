@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { monthlyEquivalent, nextPeriodEnd } from "./billing-cycle";
+import { computeProrationCredit, monthlyEquivalent, nextPeriodEnd } from "./billing-cycle";
 
 describe("nextPeriodEnd", () => {
   it("adds one month", () => {
@@ -37,5 +37,30 @@ describe("monthlyEquivalent", () => {
 
   it("rounds a yearly amount that doesn't divide evenly", () => {
     expect(monthlyEquivalent(100000, "YEARLY")).toBe(8333);
+  });
+});
+
+describe("computeProrationCredit", () => {
+  // September has 30 days, so periodStart -> currentPeriodEnd is exactly 30
+  // days — clean boundaries make the fraction math exact, not approximate.
+  const currentPeriodEnd = new Date("2026-10-01T00:00:00.000Z");
+  const periodStart = new Date("2026-09-01T00:00:00.000Z");
+
+  it("credits the full amount at the very start of the period", () => {
+    expect(computeProrationCredit(100000, currentPeriodEnd, periodStart)).toBe(100000);
+  });
+
+  it("credits half the amount exactly halfway through", () => {
+    const halfway = new Date("2026-09-16T00:00:00.000Z"); // 15 of 30 days remaining
+    expect(computeProrationCredit(100000, currentPeriodEnd, halfway)).toBe(50000);
+  });
+
+  it("credits nothing right at period end", () => {
+    expect(computeProrationCredit(100000, currentPeriodEnd, currentPeriodEnd)).toBe(0);
+  });
+
+  it("clamps to zero once the period has already elapsed", () => {
+    const afterEnd = new Date("2026-10-15T00:00:00.000Z");
+    expect(computeProrationCredit(100000, currentPeriodEnd, afterEnd)).toBe(0);
   });
 });

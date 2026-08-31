@@ -28,6 +28,11 @@ export type CreateSubscriptionCheckoutParams = {
   customerEmail: string;
   successUrl: string;
   cancelUrl: string;
+  // A one-time credit off the FIRST charge only (a prorated plan switch) —
+  // amountMinor always stays the real recurring price so renewals bill
+  // correctly. Providers that support recurring billing but not an
+  // in-between discount mechanism can ignore this.
+  firstInvoiceDiscountMinor?: number;
 };
 
 export type SubscriptionCheckoutResult = {

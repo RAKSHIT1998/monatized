@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireOnboardedCreator } from "@/lib/dal";
 import { getPaymentProvider } from "@/lib/payments";
 import { getAppUrl } from "@/lib/app-url";
+import { computeProrationCredit } from "@/lib/billing-cycle";
 import {
   activatePlatformSubscription,
   cancelPlatformSubscriptionRecord,
@@ -28,8 +29,8 @@ export async function startPlanUpgrade(planId: string) {
   if (plan.id === user.creatorProfile.plan.id) throw new Error("You're already on this plan.");
 
   // If they already have an active paid plan, stop billing it provider-side
-  // before starting a new one — no proration in this pass, same posture as
-  // this repo's other documented scope cuts (e.g. UTC-only booking hours).
+  // before starting a new one, and credit whatever's unused on it toward the
+  // new plan's first charge.
   const existing = await db.platformSubscription.findUnique({
     where: { creatorProfileId: user.creatorProfile.id },
   });
@@ -43,10 +44,24 @@ export async function startPlanUpgrade(planId: string) {
     await provider.cancelProviderSubscription(existing.providerSubscriptionId);
   }
 
+  // Only an ACTIVE plan was actually paid for — PAST_DUE gets no credit for
+  // a period whose charge never went through. Capped at the new plan's
+  // price: never a negative charge, and any leftover credit is forfeited
+  // rather than carried forward or refunded in cash.
+  let creditMinor = 0;
+  if (existing?.status === "ACTIVE" && existing.currentPeriodEnd && existing.currency === plan.currency) {
+    creditMinor = Math.min(
+      computeProrationCredit(existing.unitAmountMinor, existing.currentPeriodEnd, new Date()),
+      plan.priceMonthlyMinor,
+    );
+  }
+  const firstChargeMinor = plan.priceMonthlyMinor - creditMinor;
+
   // creatorProfileId is unique — one row per creator for life, reused across
   // upgrades/cancellations rather than recreated. The historical ledger of
   // actual charges lives in PlatformPayment instead, which has no such
-  // constraint.
+  // constraint. unitAmountMinor always stays the new plan's full recurring
+  // price — pendingChargeMinor carries a prorated first charge separately.
   const subscription = await db.platformSubscription.upsert({
     where: { creatorProfileId: user.creatorProfile.id },
     create: {
@@ -66,8 +81,19 @@ export async function startPlanUpgrade(planId: string) {
       currency: plan.currency,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
+      pendingChargeMinor: creditMinor > 0 ? firstChargeMinor : null,
     },
   });
+
+  // A large-enough prorated credit can cover the new plan's full price —
+  // nothing to charge, so activate directly rather than sending a $0
+  // request the provider may reject, mirroring the $0 coupon-covered order
+  // skip in actions/checkout.ts.
+  if (firstChargeMinor === 0) {
+    await activatePlatformSubscription(subscription.id, "zero_amount_credit");
+    revalidatePath("/dashboard/billing");
+    redirect("/dashboard/billing");
+  }
 
   const appUrl = getAppUrl();
 
@@ -86,6 +112,7 @@ export async function startPlanUpgrade(planId: string) {
       customerEmail: user.email,
       successUrl: `${appUrl}/dashboard/billing`,
       cancelUrl: `${appUrl}/dashboard/billing`,
+      firstInvoiceDiscountMinor: creditMinor > 0 ? creditMinor : undefined,
     });
     await db.platformSubscription.update({
       where: { id: subscription.id },

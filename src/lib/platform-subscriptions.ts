@@ -6,8 +6,13 @@ import { getAppUrl } from "@/lib/app-url";
 import { formatMoney } from "@/lib/money";
 import type { PaymentProvider } from "@/generated/prisma/enums";
 
-/** Records one successful charge — the first, or a renewal — for admin revenue history. */
-async function recordPlatformPayment(platformSubscriptionId: string) {
+/**
+ * Records one successful charge — the first, or a renewal — for admin revenue
+ * history. `amountMinorOverride` is for a prorated first charge that differs
+ * from the subscription's recurring price; renewals never pass it, so they
+ * always bill the full `unitAmountMinor`.
+ */
+async function recordPlatformPayment(platformSubscriptionId: string, amountMinorOverride?: number) {
   const subscription = await db.platformSubscription.findUniqueOrThrow({
     where: { id: platformSubscriptionId },
   });
@@ -16,7 +21,7 @@ async function recordPlatformPayment(platformSubscriptionId: string) {
     data: {
       platformSubscriptionId: subscription.id,
       creatorProfileId: subscription.creatorProfileId,
-      amountMinor: subscription.unitAmountMinor,
+      amountMinor: amountMinorOverride ?? subscription.unitAmountMinor,
       currency: subscription.currency,
       provider: subscription.provider,
     },
@@ -37,6 +42,10 @@ export async function activatePlatformSubscription(
   });
   if (subscription.status === "ACTIVE") return; // already activated — webhook retry
 
+  // A prorated plan switch charges less than the recurring price just this
+  // once — cleared here so a later renewal can never accidentally reuse it.
+  const chargeMinor = subscription.pendingChargeMinor ?? subscription.unitAmountMinor;
+
   await db.$transaction([
     db.platformSubscription.update({
       where: { id: platformSubscriptionId },
@@ -44,6 +53,7 @@ export async function activatePlatformSubscription(
         status: "ACTIVE",
         providerSubscriptionId,
         currentPeriodEnd: nextPeriodEnd(new Date(), "MONTHLY"),
+        pendingChargeMinor: null,
       },
     }),
     // The actual upgrade — everything gated by hasFeatureAccess/plan-limits
@@ -54,7 +64,7 @@ export async function activatePlatformSubscription(
     }),
   ]);
 
-  await recordPlatformPayment(platformSubscriptionId);
+  await recordPlatformPayment(platformSubscriptionId, chargeMinor);
   await sendPlanConfirmationEmail(subscription);
 }
 

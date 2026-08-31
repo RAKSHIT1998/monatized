@@ -249,6 +249,11 @@ model PlatformSubscription {
   // pricing exists to bill on a different cadence.
   currentPeriodEnd       DateTime?
   cancelAtPeriodEnd      Boolean            @default(false)
+  // Set when a plan switch is prorated — the actual amount due on the
+  // upcoming charge, distinct from unitAmountMinor (which always stays the
+  // new plan's full recurring price for renewals). Cleared back to null once
+  // that charge is recorded.
+  pendingChargeMinor     Int?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 

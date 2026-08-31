@@ -70,7 +70,10 @@ to end.
   graceful (keeps the plan through the period already paid for; the actual
   downgrade to Free happens when the provider's webhook confirms the
   subscription ended) — MOCK has no external billing to wind down, so it
-  downgrades immediately.
+  downgrades immediately. Switching between two paid plans prorates the
+  unused time on the old one, capped at the new plan's price (no cash
+  refund of any leftover); a credit big enough to cover the new plan
+  outright skips checkout and activates immediately.
 - **Plan-tier feature gating** — Automations, the AI growth engine, and
   custom domains are Pro-plan features (per the pricing table's own
   marketing copy), enforced at both the page (a locked "Upgrade" state

@@ -50,7 +50,7 @@ export class StripePaymentProvider implements PaymentProvider {
   async createSubscriptionCheckout(
     params: CreateSubscriptionCheckoutParams,
   ): Promise<SubscriptionCheckoutResult> {
-    const session = await this.client.checkout.sessions.create({
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       customer_email: params.customerEmail,
       success_url: params.successUrl,
@@ -68,7 +68,21 @@ export class StripePaymentProvider implements PaymentProvider {
           },
         },
       ],
-    });
+    };
+
+    // A "once" coupon discounts only this first invoice — the recurring
+    // price above is untouched, so renewals still bill in full.
+    if (params.firstInvoiceDiscountMinor) {
+      const coupon = await this.client.coupons.create({
+        amount_off: params.firstInvoiceDiscountMinor,
+        currency: params.currency,
+        duration: "once",
+        name: "Plan switch credit",
+      });
+      sessionParams.discounts = [{ coupon: coupon.id }];
+    }
+
+    const session = await this.client.checkout.sessions.create(sessionParams);
 
     if (!session.url) throw new Error("Stripe did not return a checkout URL.");
 
