@@ -19,9 +19,14 @@ export function CartBadge({ username }: { username: string }) {
   if (count === 0) return null;
 
   return (
+    // Sticky within the page's own centered column, not fixed to the raw
+    // viewport corner — on narrow screens that column's right edge lines up
+    // almost exactly with the viewport edge, so a viewport-fixed badge
+    // overlapped whatever product row content (e.g. the "View" pill) scrolled
+    // underneath it. In-flow + sticky reserves its own space instead.
     <Link
       href={`/${username}/cart`}
-      className="fixed top-4 right-4 z-10 flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-muted"
+      className="sticky top-4 z-10 flex w-fit items-center gap-1.5 self-end rounded-full border bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-muted"
     >
       <ShoppingCart className="size-4" />
       {count}

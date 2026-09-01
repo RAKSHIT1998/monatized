@@ -125,7 +125,11 @@ export default async function AdminOrdersPage({
             <TableBody>
               {orders.map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell className="font-mono text-xs">{order.orderNumber}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <Link href={`/admin/orders/${order.id}`} className="hover:underline">
+                      {order.orderNumber}
+                    </Link>
+                  </TableCell>
                   <TableCell>@{order.creatorProfile.username}</TableCell>
                   <TableCell>{order.customer.email}</TableCell>
                   <TableCell>{formatMoney(order.totalAmountMinor, order.currency)}</TableCell>

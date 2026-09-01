@@ -37,6 +37,7 @@ test("creator can sell a physical product with limited stock, and a buyer ships 
   await buyerPage.getByLabel("City").fill("Mumbai");
   await buyerPage.getByLabel("State").fill("Maharashtra");
   await buyerPage.getByLabel("Postal code").fill("400001");
+  await buyerPage.getByLabel("Country").fill("India");
   await buyerPage.getByRole("button", { name: /^pay/i }).click();
   await buyerPage.waitForURL(/\/checkout\/mock\//);
   await buyerPage.getByRole("button", { name: /simulate successful payment/i }).click();

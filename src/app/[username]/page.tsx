@@ -109,7 +109,7 @@ export default async function StorefrontPage({
                 {product.coverImageUrl ? (
                   <Image
                     src={product.coverImageUrl}
-                    alt=""
+                    alt={product.title}
                     width={56}
                     height={56}
                     className="size-full object-cover"

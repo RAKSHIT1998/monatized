@@ -123,12 +123,23 @@ export async function renewPlatformSubscription(platformSubscriptionId: string) 
 export async function markPlatformSubscriptionPastDue(platformSubscriptionId: string) {
   const subscription = await db.platformSubscription.findUnique({
     where: { id: platformSubscriptionId },
+    include: { plan: { select: { name: true } } },
   });
   if (!subscription || subscription.status === "CANCELLED") return;
 
   await db.platformSubscription.update({
     where: { id: platformSubscriptionId },
     data: { status: "PAST_DUE" },
+  });
+
+  await db.notification.create({
+    data: {
+      creatorProfileId: subscription.creatorProfileId,
+      type: "PLAN_PAST_DUE",
+      title: "Payment failed",
+      body: `Your ${subscription.plan.name} plan payment didn't go through — update your payment method to keep it.`,
+      href: "/dashboard/billing",
+    },
   });
 }
 

@@ -55,7 +55,7 @@ export async function startCheckout(
   const { email, name, couponCode } = validatedFields.data;
 
   const product = await db.product.findFirst({
-    where: { slug, status: "PUBLISHED", creatorProfile: { username } },
+    where: { slug, status: "PUBLISHED", creatorProfile: { username, suspendedAt: null } },
     include: { creatorProfile: { include: { plan: true } }, variants: true },
   });
   if (!product) {
@@ -130,6 +130,7 @@ export async function startCheckout(
       state: formData.get("shippingState"),
       postalCode: formData.get("shippingPostalCode"),
       country: formData.get("shippingCountry"),
+      phone: formData.get("shippingPhone"),
     });
     if (!shippingValidation.success) {
       return { errors: shippingValidation.error.flatten().fieldErrors };
@@ -415,7 +416,7 @@ export async function previewCoupon(
   if (!code) return { valid: false, message: "Enter a coupon code." };
 
   const product = await db.product.findFirst({
-    where: { slug, status: "PUBLISHED", creatorProfile: { username } },
+    where: { slug, status: "PUBLISHED", creatorProfile: { username, suspendedAt: null } },
   });
   if (!product) return { valid: false, message: "This product is no longer available." };
 

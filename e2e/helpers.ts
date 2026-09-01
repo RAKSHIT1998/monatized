@@ -65,3 +65,33 @@ export function readPasswordResetTokenExpiry(email: string): string {
   );
   return output.trim();
 }
+
+// Count of SENT EmailLog rows for an address — see read-email-log-count.ts
+// for why this, not the email body, is how a test confirms a send happened.
+export function readEmailLogCount(email: string): number {
+  const output = execFileSync(
+    process.execPath,
+    [require.resolve("tsx/cli"), path.join(__dirname, "fixtures", "read-email-log-count.ts"), email],
+    { encoding: "utf8" },
+  );
+  return Number(output.trim());
+}
+
+// Creates a real paid order for an existing product directly in the DB,
+// bypassing a full checkout run through the browser — see
+// create-paid-order.ts for when this is the right call instead of a real
+// checkout. Returns the new order's orderNumber.
+export function createPaidOrder(username: string, productSlug: string, buyerEmail: string): string {
+  const output = execFileSync(
+    process.execPath,
+    [
+      require.resolve("tsx/cli"),
+      path.join(__dirname, "fixtures", "create-paid-order.ts"),
+      username,
+      productSlug,
+      buyerEmail,
+    ],
+    { encoding: "utf8" },
+  );
+  return output.trim();
+}

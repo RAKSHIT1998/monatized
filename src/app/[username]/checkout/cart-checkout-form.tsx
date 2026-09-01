@@ -179,13 +179,17 @@ export function CartCheckoutForm({ username }: { username: string }) {
                     id="shippingCountry"
                     name="shippingCountry"
                     autoComplete="country-name"
-                    defaultValue="India"
+                    placeholder="e.g. India"
                     required
                   />
                   {state?.errors?.country && (
                     <p className="text-sm text-destructive">{state.errors.country[0]}</p>
                   )}
                 </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="shippingPhone">Phone (optional)</Label>
+                <Input id="shippingPhone" name="shippingPhone" type="tel" autoComplete="tel" />
               </div>
             </div>
           )}
@@ -199,6 +203,15 @@ export function CartCheckoutForm({ username }: { username: string }) {
                 onChange={(e) => {
                   setCouponInput(e.target.value);
                   setCouponPreview(null);
+                }}
+                onKeyDown={(e) => {
+                  // This input lives inside the page's one big checkout
+                  // <form> — without this, Enter here submits checkout
+                  // itself instead of applying the coupon.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyCoupon();
+                  }
                 }}
                 placeholder="LAUNCH20"
                 className="uppercase"

@@ -4,9 +4,12 @@ import { db } from "@/lib/db";
 import { calculateCommissionMinor } from "@/lib/affiliates";
 import { runAutomations } from "@/lib/automations";
 import { getEmailProvider } from "@/lib/email";
+import { escapeHtml, renderEmailLayout } from "@/lib/email/layout";
 import { getAppUrl } from "@/lib/app-url";
 import { formatMoney } from "@/lib/money";
 import { restoreStock } from "@/lib/stock";
+import { getPaymentProvider } from "@/lib/payments";
+import type { PaymentProvider } from "@/generated/prisma/enums";
 
 export function generateOrderNumber() {
   return `MON-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -109,6 +112,15 @@ export async function markOrderPaid(orderId: string, providerPaymentId: string) 
         metadata: { providerPaymentId },
       },
     }),
+    db.notification.create({
+      data: {
+        creatorProfileId: order.creatorProfileId,
+        type: "NEW_SALE",
+        title: "New sale",
+        body: `${formatMoney(order.totalAmountMinor, order.currency)} — ${order.items[0]?.titleSnapshot ?? "an order"}`,
+        href: "/dashboard/orders",
+      },
+    }),
   ]);
 
   await runAutomations(order.creatorProfileId, "ORDER_PAID", {
@@ -148,10 +160,21 @@ async function sendOrderConfirmationEmail(order: {
     "",
     "Bookmark this link — it's how you'll come back to your purchase.",
   ].join("\n");
+  const html = renderEmailLayout(
+    `Thanks for your order from ${escapeHtml(order.creatorProfile.displayName)}!`,
+    `
+    <ul style="margin:0 0 16px;padding-left:20px;font-size:14px;">
+      ${order.items.map((item) => `<li>${escapeHtml(item.titleSnapshot)}</li>`).join("")}
+    </ul>
+    <p style="margin:0 0 20px;font-size:14px;"><strong>Total:</strong> ${formatMoney(order.totalAmountMinor, order.currency)}</p>
+    <a href="${orderUrl}" style="display:inline-block;padding:10px 18px;background:#171717;color:#ffffff;border-radius:8px;font-size:14px;text-decoration:none;">View your order</a>
+    <p style="margin:16px 0 0;font-size:12px;color:#737373;">Bookmark this link — it's how you'll come back to your purchase.</p>
+    `,
+  );
 
   let status: "SENT" | "FAILED" = "SENT";
   try {
-    await provider.send({ to: order.customer.email, subject, text });
+    await provider.send({ to: order.customer.email, subject, text, html });
   } catch {
     status = "FAILED";
   }
@@ -206,5 +229,66 @@ export async function markOrderFailed(orderId: string) {
     // confirmation anyone saw — delete it outright to free the calendar slot.
     db.booking.deleteMany({ where: { orderId } }),
     ...restoreOps,
+  ]);
+}
+
+/**
+ * The actual refund — provider call plus the DB transaction that reflects
+ * it. Shared by the creator-facing refundOrder (ownership-checked) and the
+ * admin-facing adminRefundOrder (no ownership check) in actions/admin.ts —
+ * one implementation, two authorized entry points, same reasoning as
+ * setCreatorPlan reusing cancelPlatformSubscriptionRecord.
+ */
+export async function performRefund(
+  order: {
+    id: string;
+    customerId: string;
+    status: string;
+    totalAmountMinor: number;
+    currency: string;
+    payment: { provider: PaymentProvider; providerPaymentId: string | null } | null;
+  },
+  actorUserId: string,
+) {
+  if (order.status !== "PAID") {
+    throw new Error("Only paid orders can be refunded.");
+  }
+
+  // A coupon covering 100% of the price never actually charged the payment
+  // provider (see startCheckout) — nothing to refund there, same reasoning
+  // in reverse.
+  if (order.totalAmountMinor > 0) {
+    if (!order.payment?.providerPaymentId) {
+      throw new Error("This order has no payment on file to refund.");
+    }
+    const provider = getPaymentProvider();
+    if (order.payment.provider !== provider.name) {
+      throw new Error(
+        `This order was paid via ${order.payment.provider}, but the configured payment provider is ${provider.name}. Refund it from wherever that payment actually happened.`,
+      );
+    }
+    await provider.refundPayment({
+      providerPaymentId: order.payment.providerPaymentId,
+      amountMinor: order.totalAmountMinor,
+      currency: order.currency,
+    });
+  }
+
+  await db.$transaction([
+    db.order.update({ where: { id: order.id }, data: { status: "REFUNDED" } }),
+    db.payment.update({ where: { orderId: order.id }, data: { status: "REFUNDED" } }),
+    // Reverses the increment from markOrderPaid — refunded money was never
+    // really "spent". ordersCount is left alone: it's a lifetime count of
+    // orders placed, not a count of money currently kept.
+    db.customer.update({
+      where: { id: order.customerId },
+      data: { totalSpentMinor: { decrement: order.totalAmountMinor } },
+    }),
+    // The item is no longer paid for — expire any download links immediately
+    // rather than letting them run out their normal 7-day/5-download life.
+    db.downloadGrant.updateMany({ where: { orderId: order.id }, data: { expiresAt: new Date() } }),
+    db.auditLog.create({
+      data: { actorUserId, action: "order.refunded", targetType: "Order", targetId: order.id },
+    }),
   ]);
 }

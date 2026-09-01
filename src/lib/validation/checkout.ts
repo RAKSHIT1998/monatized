@@ -28,6 +28,14 @@ export const shippingAddressSchema = z.object({
   state: z.string().trim().min(1, "Enter a state/region.").max(120),
   postalCode: z.string().trim().min(1, "Enter a postal code.").max(20),
   country: z.string().trim().min(1, "Enter a country.").max(120),
+  // Most couriers require this for delivery — optional since some
+  // creators ship in regions where it isn't collected at checkout.
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .optional()
+    .transform((v) => (v === "" ? undefined : v)),
 });
 
 export type ShippingAddressInput = z.infer<typeof shippingAddressSchema>;

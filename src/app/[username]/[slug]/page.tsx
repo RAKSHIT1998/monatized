@@ -15,7 +15,7 @@ import { PhysicalVariantPicker } from "@/components/storefront/physical-variant-
 
 async function getPublishedProduct(username: string, slug: string) {
   return db.product.findFirst({
-    where: { slug, status: "PUBLISHED", creatorProfile: { username } },
+    where: { slug, status: "PUBLISHED", creatorProfile: { username, suspendedAt: null } },
     include: {
       creatorProfile: { include: { theme: true } },
       modules: {
@@ -84,7 +84,7 @@ export default async function ProductPage({
         {product.coverImageUrl ? (
           <Image
             src={product.coverImageUrl}
-            alt=""
+            alt={product.title}
             width={512}
             height={288}
             className="size-full object-cover"

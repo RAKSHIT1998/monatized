@@ -6,6 +6,9 @@ import { formatMoney } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -29,32 +32,74 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "dest
   REFUNDED: "outline",
 };
 
-export default async function OrdersPage() {
-  const user = await requireOnboardedCreator();
+const PAGE_SIZE = 50;
 
-  const orders = await db.order.findMany({
-    where: { creatorProfileId: user.creatorProfile.id },
-    orderBy: { createdAt: "desc" },
-    include: { customer: true, items: true },
-    take: 100,
-  });
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const user = await requireOnboardedCreator();
+  const { q, page: pageParam } = await searchParams;
+  const query = q?.trim() ?? "";
+  const page = Math.max(1, Number(pageParam) || 1);
+
+  const where = {
+    creatorProfileId: user.creatorProfile.id,
+    ...(query
+      ? {
+          OR: [
+            { orderNumber: { contains: query, mode: "insensitive" as const } },
+            { customer: { email: { contains: query, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [orders, totalCount] = await Promise.all([
+    db.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: { customer: true, items: true },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    db.order.count({ where }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  function pageHref(targetPage: number) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    params.set("page", String(targetPage));
+    return `/dashboard/orders?${params.toString()}`;
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
-          <p className="text-sm text-muted-foreground">Every checkout attempt on your store.</p>
+          <p className="text-sm text-muted-foreground">{totalCount} total</p>
         </div>
-        {orders.length > 0 && (
-          <Link href="/api/export/orders" className={buttonVariants({ variant: "outline" })}>
-            <Download className="size-4" />
-            Export CSV
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <form className="flex gap-2">
+            <Input name="q" defaultValue={query} placeholder="Search by order # or email" className="w-64" />
+            <Button type="submit" variant="outline">
+              Search
+            </Button>
+          </form>
+          {totalCount > 0 && (
+            <Link href="/api/export/orders" className={buttonVariants({ variant: "outline" })}>
+              <Download className="size-4" />
+              Export CSV
+            </Link>
+          )}
+        </div>
       </div>
 
-      {orders.length === 0 ? (
+      {totalCount === 0 && !query ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             No orders yet.
@@ -79,7 +124,11 @@ export default async function OrdersPage() {
               <TableBody>
                 {orders.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-mono text-xs">{order.orderNumber}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <Link href={`/dashboard/orders/${order.id}`} className="hover:underline">
+                        {order.orderNumber}
+                      </Link>
+                    </TableCell>
                     <TableCell>{order.customer.email}</TableCell>
                     <TableCell>
                       {order.items
@@ -115,10 +164,44 @@ export default async function OrdersPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {orders.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      No orders match this search.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Link
+              href={pageHref(page - 1)}
+              aria-disabled={page <= 1}
+              className={cn(buttonVariants({ variant: "outline" }), page <= 1 && "pointer-events-none opacity-50")}
+            >
+              Previous
+            </Link>
+            <Link
+              href={pageHref(page + 1)}
+              aria-disabled={page >= totalPages}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                page >= totalPages && "pointer-events-none opacity-50",
+              )}
+            >
+              Next
+            </Link>
+          </div>
+        </div>
       )}
     </div>
   );

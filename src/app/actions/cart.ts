@@ -121,6 +121,7 @@ export async function startCartCheckout(
       state: formData.get("shippingState"),
       postalCode: formData.get("shippingPostalCode"),
       country: formData.get("shippingCountry"),
+      phone: formData.get("shippingPhone"),
     });
     if (!shippingValidation.success) {
       return { errors: shippingValidation.error.flatten().fieldErrors };

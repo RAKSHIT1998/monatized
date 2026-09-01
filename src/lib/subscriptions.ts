@@ -92,6 +92,16 @@ export async function activateSubscription(
 
   await recordBillingCycle(subscriptionId);
 
+  await db.notification.create({
+    data: {
+      creatorProfileId: subscription.creatorProfileId,
+      type: "NEW_SUBSCRIBER",
+      title: "New subscriber",
+      body: `${subscription.customer.email} — ${subscription.product.title}`,
+      href: "/dashboard/customers",
+    },
+  });
+
   await runAutomations(subscription.creatorProfileId, "NEW_SUBSCRIBER", {
     customerId: subscription.customerId,
     customerEmail: subscription.customer.email,

@@ -7,6 +7,7 @@ import { DashboardNav } from "./dashboard-nav";
 import { UserMenu } from "./user-menu";
 import { PwaInstall } from "@/components/pwa-install";
 import { LiveSaleNotifier } from "@/components/dashboard/live-sale-notifier";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { PlanKey } from "@/generated/prisma/client";
@@ -62,6 +63,8 @@ export function DashboardShell({ displayName, username, planName, planKey, child
           </a>
 
           <PwaInstall />
+
+          <NotificationBell />
 
           <UserMenu displayName={displayName} />
         </header>

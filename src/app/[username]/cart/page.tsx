@@ -15,7 +15,7 @@ export default async function CartPage({
   const { username } = await params;
 
   const creatorProfile = await db.creatorProfile.findUnique({
-    where: { username },
+    where: { username, suspendedAt: null },
     select: { displayName: true, theme: { select: { primaryColor: true } } },
   });
   if (!creatorProfile) notFound();

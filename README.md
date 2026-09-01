@@ -24,7 +24,11 @@ to end.
 - **Onboarding** — a 3-step wizard (business basics → claim your store URL →
   launch) that provisions a `CreatorProfile` on signup.
 - **Creator dashboard** — overview, products, orders, customers, analytics,
-  store editor, billing, settings nav shell.
+  store editor, billing, settings nav shell. Orders and Products both have
+  search and pagination (matching the pattern already used in the admin
+  console); an order's own `/dashboard/orders/[id]` page shows full line
+  items, shipping/payment detail, and the fulfillment/refund actions
+  previously only available inline on the list.
 - **Digital products** — create/edit/publish/archive, file uploads via a
   storage abstraction (local disk in dev, S3-compatible in production),
   per-plan product limits.
@@ -35,31 +39,50 @@ to end.
   (Payment Links API), and `stripe` (Checkout Sessions). Orders are only ever
   marked paid by a signature-verified webhook (or the mock provider's own
   clearly-labeled simulate button) — never by a client-side redirect alone.
-- **Refunds** — a creator can refund any paid order from `/dashboard/orders`,
-  which calls the real refund API for whichever provider actually processed
-  that payment (Stripe Refunds / Razorpay refunds — never faked), reverses
-  the customer's recorded spend, and immediately expires any digital-download
-  links tied to that order rather than leaving them to run out their normal
-  lifetime. A coupon-covered $0 order skips the provider call entirely, same
-  reasoning as checkout skipping it for a $0 charge.
+- **Refunds** — a creator can refund any paid order from `/dashboard/orders`
+  (or its own `/dashboard/orders/[id]` detail page), which calls the real
+  refund API for whichever provider actually processed that payment (Stripe
+  Refunds / Razorpay refunds — never faked), reverses the customer's recorded
+  spend, and immediately expires any digital-download links tied to that
+  order rather than leaving them to run out their normal lifetime. A
+  coupon-covered $0 order skips the provider call entirely, same reasoning as
+  checkout skipping it for a $0 charge. An admin can also refund an order
+  directly from `/admin/orders/[id]` for a dispute the creator hasn't (or
+  won't) act on — same underlying refund logic, no ownership check.
 - **Digital delivery** — signed, expiring, download-limited grants served from
   `/api/download/[token]`, decoupled from the storage backend.
 - **Order confirmation emails** — since there's no customer login system,
   the bookmarkable `/order/[orderNumber]` (or `/member/[accessToken]` for a
-  new subscriber) link is a buyer's only way back to what they bought.
-  `markOrderPaid`/`activateSubscription` email that link to the buyer via the
-  same `EmailProvider` abstraction, logged to `EmailLog` for visibility. A
-  send failure is caught and never allowed to break the payment flow that
-  triggered it — same posture as automations.
+  new subscriber) link is a buyer's only way back to what they bought — the
+  order page also now surfaces a subscription's membership link, not just
+  downloads/courses/bookings. `markOrderPaid`/`activateSubscription` email
+  that link to the buyer via the same `EmailProvider` abstraction (branded
+  HTML alongside the plain-text body for this one and the recovery email
+  below), logged to `EmailLog` for visibility. A send failure is caught and
+  never allowed to break the payment flow that triggered it — same posture
+  as automations.
+- **Order recovery** — `/find-order`: a buyer who lost their confirmation
+  email enters it again and gets every matching order, across every creator
+  it was purchased from, re-emailed to them. Rate-limited and always shows
+  the same generic response regardless of a match — same anti-enumeration
+  posture as password reset.
+- **Dashboard notifications** — a persistent, dismissable activity feed (new
+  sale, new subscriber, new comment, a failed platform-plan payment) behind
+  a bell icon in the dashboard header, distinct from the ephemeral live-sale
+  toast that only helps while the tab is open.
 - **Analytics** — store views / product views / checkout starts / conversion
   rate, a revenue-over-time chart, top products by revenue.
 - **Admin panel** — platform overview (GMV, MRR split by revenue stream,
   refund rate, average order value, a 30-day revenue trend chart, top
   creators by revenue), searchable/paginated creators and orders lists (with
-  a status filter on orders), and an editable plan/pricing table. An admin
-  can also change any creator's plan directly, which cancels their platform
-  subscription (provider-side too) so they're never left being billed for a
-  plan they no longer have.
+  a status filter on orders, and drill-down detail pages for a single
+  creator or order), an audit log viewer, and an editable plan/pricing
+  table. An admin can change any creator's plan directly (cancelling their
+  platform subscription first, provider-side too, so they're never left
+  being billed for a plan they no longer have) and can suspend a creator's
+  storefront entirely — every public storefront/checkout query filters out a
+  suspended creator, so their store, product pages, and checkout all 404 for
+  buyers immediately.
 - **Billing** — creators can actually pay for their own plan upgrade, not
   just see one. `/dashboard/billing` shows the current plan, usage vs.
   limit, and lets a creator upgrade/downgrade/cancel via a real recurring
@@ -177,9 +200,14 @@ to end.
   so two concurrent buyers can never both win the last unit, the same
   optimistic-reservation pattern bookings use for slots — and restored if the
   order later fails, the same as an abandoned booking hold freeing its slot.
-  Checkout collects a shipping address (stored on the `Order`); creators mark
-  orders shipped with an optional tracking number from `/dashboard/orders`,
-  which the buyer then sees on their receipt. An optional flat-rate shipping
+  Checkout collects a shipping address, including an optional phone number
+  (stored on the `Order`, no country pre-filled — a buyer types their own
+  rather than silently defaulting to one that's wrong for them); creators
+  mark orders shipped with an optional tracking number from
+  `/dashboard/orders`, which the buyer then sees on their receipt. The
+  Products list flags a physical item as Low stock (≤5 units, summed across
+  options for a product with variants) or Out of stock before it actually
+  runs out. An optional flat-rate shipping
   fee (blank = free) is added on top of the price at checkout — never
   multiplied by quantity or discounted by a coupon — and broken out as its own
   line on the receipt, same convention real checkouts use. Creators can also

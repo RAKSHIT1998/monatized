@@ -6,7 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Download, CheckCircle2, XCircle, Clock, GraduationCap, CalendarCheck, Truck, Heart } from "lucide-react";
+import { Download, CheckCircle2, XCircle, Clock, GraduationCap, CalendarCheck, Truck, Heart, Users } from "lucide-react";
 import { OrderStatusPoller } from "./order-status-poller";
 import { ClearCartOnPaid } from "./clear-cart-on-paid";
 
@@ -22,6 +22,7 @@ type ShippingAddress = {
   state: string;
   postalCode: string;
   country: string;
+  phone?: string;
 };
 
 // A torn-edge bottom, the same technique as the landing page's receipt
@@ -45,6 +46,7 @@ export default async function OrderPage({
       downloadGrants: { include: { digitalProductFile: true } },
       courseEnrollment: { include: { product: true } },
       booking: { include: { product: true } },
+      subscription: { select: { accessToken: true } },
       coupon: true,
     },
   });
@@ -198,6 +200,22 @@ export default async function OrderPage({
               </div>
             )}
 
+            {order.status === "PAID" && order.subscription && (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium">Your membership</p>
+                <Link
+                  href={`/member/${order.subscription.accessToken}`}
+                  className={cn(buttonVariants(), "justify-start")}
+                >
+                  <Users className="size-4" />
+                  Go to your member area
+                </Link>
+                <p className="text-xs text-muted-foreground">
+                  Bookmark this link — it&apos;s how you&apos;ll come back to your membership.
+                </p>
+              </div>
+            )}
+
             {order.status === "PAID" && order.booking && (
               <div className="flex flex-col gap-2">
                 <p className="text-sm font-medium">Your booking</p>
@@ -236,6 +254,7 @@ export default async function OrderPage({
                       {shippingAddress.city}, {shippingAddress.state} {shippingAddress.postalCode}
                     </p>
                     <p>{shippingAddress.country}</p>
+                    {shippingAddress.phone && <p>{shippingAddress.phone}</p>}
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">

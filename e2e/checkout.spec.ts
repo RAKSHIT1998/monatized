@@ -60,4 +60,12 @@ test("buyer can complete a mock checkout and download the file, creator sees the
   await page.goto("/dashboard/customers");
   await expect(page.getByRole("cell", { name: buyerEmail, exact: true })).toBeVisible();
   await expect(page.getByText("₹199")).toBeVisible();
+
+  // The sale also landed as a persisted notification, not just the toast.
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: "Notifications" }).click();
+  await expect(page.getByText("New sale")).toBeVisible();
+  await expect(page.getByText("Mark all read")).toBeVisible();
+  await page.getByText("Mark all read").click();
+  await expect(page.getByText("Mark all read")).not.toBeVisible();
 });

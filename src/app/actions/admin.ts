@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/dal";
 import { updatePlanSchema } from "@/lib/validation/plan";
 import { getPaymentProvider } from "@/lib/payments";
 import { cancelPlatformSubscriptionRecord } from "@/lib/platform-subscriptions";
+import { performRefund } from "@/lib/orders";
 
 export type AdminFormState =
   | {
@@ -106,4 +107,68 @@ export async function setCreatorPlan(creatorProfileId: string, planId: string) {
   ]);
 
   revalidatePath("/admin/creators");
+}
+
+// Takes a creator's storefront/checkout offline entirely — every public
+// query that resolves a creator by username filters on suspendedAt: null,
+// so this falls through to the same "not found" handling those pages
+// already have, no new branching required there.
+export async function suspendCreator(creatorProfileId: string, reason: string) {
+  const admin = await requireAdmin();
+
+  await db.$transaction([
+    db.creatorProfile.update({
+      where: { id: creatorProfileId },
+      data: { suspendedAt: new Date(), suspensionReason: reason.trim() || null },
+    }),
+    db.auditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "creator.suspended",
+        targetType: "CreatorProfile",
+        targetId: creatorProfileId,
+        metadata: { reason },
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/creators");
+  revalidatePath(`/admin/creators/${creatorProfileId}`);
+}
+
+// Same refund as the creator-facing one (actions/orders.ts) — reuses
+// performRefund — but with no ownership check, for a disputed order the
+// creator hasn't (or won't) act on.
+export async function adminRefundOrder(orderId: string) {
+  const admin = await requireAdmin();
+
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { payment: true } });
+  if (!order) throw new Error("Order not found.");
+
+  await performRefund(order, admin.id);
+
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${orderId}`);
+}
+
+export async function reactivateCreator(creatorProfileId: string) {
+  const admin = await requireAdmin();
+
+  await db.$transaction([
+    db.creatorProfile.update({
+      where: { id: creatorProfileId },
+      data: { suspendedAt: null, suspensionReason: null },
+    }),
+    db.auditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "creator.reactivated",
+        targetType: "CreatorProfile",
+        targetId: creatorProfileId,
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/creators");
+  revalidatePath(`/admin/creators/${creatorProfileId}`);
 }

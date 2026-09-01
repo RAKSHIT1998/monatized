@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 async function getCheckoutProduct(username: string, slug: string) {
   return db.product.findFirst({
-    where: { slug, status: "PUBLISHED", creatorProfile: { username } },
+    where: { slug, status: "PUBLISHED", creatorProfile: { username, suspendedAt: null } },
     include: { creatorProfile: true, variants: true },
   });
 }

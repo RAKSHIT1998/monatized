@@ -41,19 +41,29 @@ export default async function DashboardOverviewPage() {
   currentPeriodStart.setDate(currentPeriodStart.getDate() - (TREND_DAYS - 1));
   currentPeriodStart.setHours(0, 0, 0, 0);
 
-  const [productsCount, paidOrdersCount, customersCount, revenue, recentOrders] = await Promise.all([
-    db.product.count({ where: { creatorProfileId } }),
-    db.order.count({ where: { creatorProfileId, status: "PAID" } }),
-    db.customer.count({ where: { creatorProfileId } }),
-    db.order.aggregate({
-      where: { creatorProfileId, status: "PAID" },
-      _sum: { totalAmountMinor: true },
-    }),
-    db.order.findMany({
-      where: { creatorProfileId, status: "PAID", createdAt: { gte: previousPeriodStart } },
-      select: { createdAt: true, totalAmountMinor: true },
-    }),
-  ]);
+  const [productsCount, paidOrdersCount, customersCount, revenue, recentOrders, theme, profile] =
+    await Promise.all([
+      db.product.count({ where: { creatorProfileId } }),
+      db.order.count({ where: { creatorProfileId, status: "PAID" } }),
+      db.customer.count({ where: { creatorProfileId } }),
+      db.order.aggregate({
+        where: { creatorProfileId, status: "PAID" },
+        _sum: { totalAmountMinor: true },
+      }),
+      db.order.findMany({
+        where: { creatorProfileId, status: "PAID", createdAt: { gte: previousPeriodStart } },
+        select: { createdAt: true, totalAmountMinor: true },
+      }),
+      db.storeTheme.findUnique({ where: { creatorProfileId } }),
+      db.creatorProfile.findUnique({ where: { id: creatorProfileId }, select: { bio: true } }),
+    ]);
+  // StoreTheme has no createdAt to diff against updatedAt, so "customized"
+  // is derived from whether any editable field has moved off its seeded
+  // default (see prisma/schema.prisma's StoreTheme model) — all fields
+  // updateStoreAppearance (actions/store.ts) writes.
+  const storeCustomized = Boolean(
+    profile?.bio || (theme && (theme.primaryColor !== "#111111" || theme.buttonStyle !== "solid")),
+  );
 
   const currency = user.creatorProfile.plan.currency;
   const totalRevenueMinor = revenue._sum.totalAmountMinor ?? 0;
@@ -97,7 +107,7 @@ export default async function DashboardOverviewPage() {
 
   const checklist = [
     { done: productsCount > 0, label: "Add your first product", href: "/dashboard/products/new" },
-    { done: false, label: "Customize your storefront", href: "/dashboard/store" },
+    { done: storeCustomized, label: "Customize your storefront", href: "/dashboard/store" },
     { done: paidOrdersCount > 0, label: "Make your first sale", href: `/${user.creatorProfile.username}` },
   ];
 

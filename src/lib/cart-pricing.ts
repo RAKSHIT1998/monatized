@@ -16,7 +16,7 @@ export async function buildCartPricing(
   requested: CartLineInput[],
 ): Promise<CartPricing> {
   const creatorProfile = await db.creatorProfile.findUnique({
-    where: { username },
+    where: { username, suspendedAt: null },
     select: { id: true },
   });
   if (!creatorProfile) return { ...EMPTY_CART_PRICING };

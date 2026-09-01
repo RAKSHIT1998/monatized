@@ -65,6 +65,7 @@ test("buyer can add multiple products to a cart from one creator and check out i
   await buyerPage.getByLabel("City").fill("Mumbai");
   await buyerPage.getByLabel("State").fill("Maharashtra");
   await buyerPage.getByLabel("Postal code").fill("400001");
+  await buyerPage.getByLabel("Country").fill("India");
   await buyerPage.getByRole("button", { name: /^pay/i }).click();
 
   await buyerPage.waitForURL(/\/checkout\/mock\//);

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 export async function getPublicStoreByUsername(username: string) {
   const profile = await db.creatorProfile.findUnique({
-    where: { username },
+    where: { username, suspendedAt: null },
     include: {
       theme: true,
       plan: { select: { removesBranding: true } },

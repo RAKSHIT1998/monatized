@@ -84,7 +84,10 @@ export async function deleteComment(commentId: string) {
 // cancelSubscriptionAsMember. No customer login system, so this token IS the
 // member's identity for posting a comment.
 export async function addCommentAsMember(accessToken: string, formData: FormData) {
-  const subscription = await db.subscription.findUnique({ where: { accessToken } });
+  const subscription = await db.subscription.findUnique({
+    where: { accessToken },
+    include: { customer: { select: { email: true } } },
+  });
   if (!subscription || !hasActiveMembership(subscription.status)) {
     throw new Error("An active membership is required to comment.");
   }
@@ -106,6 +109,15 @@ export async function addCommentAsMember(accessToken: string, formData: FormData
       authorType: "MEMBER",
       customerId: subscription.customerId,
       body: validated.data.body,
+    },
+  });
+  await db.notification.create({
+    data: {
+      creatorProfileId: subscription.creatorProfileId,
+      type: "NEW_COMMENT",
+      title: "New comment",
+      body: `${subscription.customer.email}: ${validated.data.body.slice(0, 80)}`,
+      href: "/dashboard/community",
     },
   });
   revalidatePath(`/member/${accessToken}/community`);

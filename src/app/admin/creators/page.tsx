@@ -92,8 +92,15 @@ export default async function AdminCreatorsPage({
               {creators.map((creator) => (
                 <TableRow key={creator.id}>
                   <TableCell>
-                    <p className="font-medium">{creator.displayName}</p>
+                    <Link href={`/admin/creators/${creator.id}`} className="font-medium hover:underline">
+                      {creator.displayName}
+                    </Link>
                     <p className="text-xs text-muted-foreground">@{creator.username}</p>
+                    {creator.suspendedAt && (
+                      <Badge variant="destructive" className="mt-1">
+                        Suspended
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>{creator.user.email}</TableCell>
                   <TableCell>

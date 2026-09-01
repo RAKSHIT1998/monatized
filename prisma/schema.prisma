@@ -188,6 +188,12 @@ model CreatorProfile {
   onboardingStep     Int      @default(0)
   onboardingComplete Boolean  @default(false)
   planId             String
+  // Admin trust & safety — set together by suspendCreator/reactivateCreator.
+  // Every public storefront/checkout query filters on suspendedAt: null, so
+  // a suspended creator's store falls through to the same "not found"
+  // handling that already exists rather than needing new branching.
+  suspendedAt        DateTime?
+  suspensionReason   String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -207,6 +213,33 @@ model CreatorProfile {
   customDomain         CustomDomain?
   platformSubscription PlatformSubscription?
   platformPayments     PlatformPayment[]
+  notifications        Notification[]
+}
+
+enum NotificationType {
+  NEW_SALE
+  NEW_COMMENT
+  NEW_SUBSCRIBER
+  PLAN_PAST_DUE
+}
+
+// A persisted, dismissable activity feed for the dashboard bell — distinct
+// from LiveSaleNotifier's ephemeral toasts, which stay in place for a
+// creator actively watching the tab. Low stock is deliberately NOT modeled
+// here: it's live/derived state on the Products list, not a one-off event.
+model Notification {
+  id               String           @id @default(cuid())
+  creatorProfileId String
+  type             NotificationType
+  title            String
+  body             String?
+  href             String?
+  readAt           DateTime?
+  createdAt        DateTime         @default(now())
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([creatorProfileId, readAt])
 }
 
 // One custom domain per creator. Verification proves domain ownership (a DNS
