@@ -6,9 +6,10 @@ test("creator can pay to upgrade their own plan, and downgrades on cancellation"
   const username = `platbill${Date.now()}`.slice(0, 20);
   await signupAndOnboard(page, { email, username });
 
-  // Free plan: Automations is locked.
+  // Free plan: Automations is locked — the real UI renders behind a preview
+  // overlay, so the upgrade call to action is what marks it as gated.
   await page.goto("/dashboard/automations");
-  await expect(page.getByText("Automations is a Pro plan feature")).toBeVisible();
+  await expect(page.getByRole("link", { name: /^upgrade to pro$/i })).toBeVisible();
 
   // Upgrade to Pro via the mock plan checkout.
   await page.goto("/dashboard/billing");
@@ -23,8 +24,12 @@ test("creator can pay to upgrade their own plan, and downgrades on cancellation"
   const proCard = page.locator('[data-slot="card"]', { hasText: "Pro" }).first();
   await expect(proCard.getByText("Current")).toBeVisible();
   await expect(page.getByText(/^Renews /)).toBeVisible();
+  // Unlocked: the page still renders, but the upgrade overlay is gone. The
+  // form itself also exists inside the locked preview, so its absence —
+  // not its presence — is what distinguishes the two states.
   await page.goto("/dashboard/automations");
-  await expect(page.getByText("Simple rules that run automatically")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Automations" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^upgrade to pro$/i })).not.toBeVisible();
 
   // Mock dev controls: simulate a renewal charge with no errors.
   await page.goto("/dashboard/billing");
@@ -39,7 +44,7 @@ test("creator can pay to upgrade their own plan, and downgrades on cancellation"
   const freeCard = page.locator('[data-slot="card"]', { hasText: "Free" }).first();
   await expect(freeCard.getByText("Current")).toBeVisible();
   await page.goto("/dashboard/automations");
-  await expect(page.getByText("Automations is a Pro plan feature")).toBeVisible();
+  await expect(page.getByRole("link", { name: /^upgrade to pro$/i })).toBeVisible();
 });
 
 test("switching between paid plans prorates the unused time on the old one", async ({ page }) => {

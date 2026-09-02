@@ -17,9 +17,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { FulfillmentCell } from "./fulfillment-cell";
 import { RefundButton } from "./refund-button";
-import { Download } from "lucide-react";
+import { Download, Receipt } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Orders — Monetized",
@@ -100,11 +101,13 @@ export default async function OrdersPage({
       </div>
 
       {totalCount === 0 && !query ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No orders yet.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Receipt}
+          title="No orders yet"
+          description="Every checkout on your store shows up here — paid, pending or refunded — with the buyer's details and what they bought."
+          action={{ label: "Share your store", href: `/${user.creatorProfile.username}` }}
+          hint="Orders arrive the moment someone pays"
+        />
       ) : (
         <Card>
           <CardContent className="p-0">

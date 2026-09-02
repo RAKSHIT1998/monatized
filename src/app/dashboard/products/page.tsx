@@ -18,7 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus } from "lucide-react";
+import { Package, Plus } from "lucide-react";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 export const metadata: Metadata = {
   title: "Products — Monetized",
@@ -114,21 +115,13 @@ export default async function ProductsPage({
       </div>
 
       {totalCount === 0 && !query ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <p className="font-medium">No products yet</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Sell a PDF, template, preset, or any downloadable file. Create your first product to
-              get a shareable checkout link.
-            </p>
-            <Link
-              href="/dashboard/products/new"
-              className={cn(buttonVariants(), "mt-2")}
-            >
-              Create a product
-            </Link>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Package}
+          title="No products yet"
+          description="Sell a PDF, a course, a coaching call, a physical item or a tip jar. Whatever you add gets its own shareable checkout link."
+          action={{ label: "Create a product", href: "/dashboard/products/new" }}
+          hint="Six product types available"
+        />
       ) : (
         <Card>
           <CardContent className="p-0">

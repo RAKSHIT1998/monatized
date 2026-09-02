@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { computeGrowthInsights } from "@/lib/growth-insights";
 import { getProductRevenueTotals } from "@/lib/order-item-revenue";
 import { hasFeatureAccess, featureLabel, minPlanFor, planDisplayName } from "@/lib/plan-features";
-import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
+import { FeaturePreview } from "@/components/dashboard/feature-preview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Lightbulb } from "lucide-react";
@@ -14,6 +14,27 @@ export const metadata: Metadata = {
   title: "Growth engine — Monetized",
 };
 
+// Shown inside the locked preview. These mirror the shapes
+// computeGrowthInsights actually produces, so the preview is an honest
+// picture of the feature rather than an idealised one.
+const SAMPLE_INSIGHTS = [
+  {
+    title: "12 checkouts started, 7 finished",
+    detail: "Five buyers dropped off at payment in the last 30 days — worth a look at your pricing or checkout copy.",
+    warning: true,
+  },
+  {
+    title: "2 subscribers are past due",
+    detail: "Their last payment failed. They keep access until you cancel, so a nudge usually recovers them.",
+    warning: true,
+  },
+  {
+    title: "\"Lightroom Presets\" earns the most",
+    detail: "It brings in 46% of your revenue. Consider a bundle or a follow-up pack around it.",
+    warning: false,
+  },
+];
+
 export default async function GrowthPage() {
   const user = await requireOnboardedCreator();
   const creatorProfileId = user.creatorProfile.id;
@@ -21,11 +42,45 @@ export default async function GrowthPage() {
   if (!hasFeatureAccess(user.creatorProfile.plan.key, "GROWTH_ENGINE")) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Growth engine</h1>
-        <UpgradePrompt
+        <div>
+          <h1 className="text-2xl font-medium tracking-tight">Growth engine</h1>
+          <p className="text-muted-foreground text-sm">
+            Rule-based insights from your own numbers — not generated, computed. Plus an
+            AI-assisted product description writer.
+          </p>
+        </div>
+        <FeaturePreview
           feature={featureLabel("GROWTH_ENGINE")}
           minPlanName={planDisplayName(minPlanFor("GROWTH_ENGINE"))}
-        />
+          summary="Tells you what to fix next, worked out from your own sales rather than generic advice."
+          benefits={[
+            "Spot checkouts that start but never finish",
+            "Catch subscribers whose payment quietly failed",
+            "Draft product descriptions without staring at a blank box",
+          ]}
+        >
+          <div className="flex flex-col gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Insights</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {SAMPLE_INSIGHTS.map((insight) => (
+                  <div key={insight.title} className="flex gap-3 rounded-lg border p-3">
+                    <Lightbulb className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{insight.title}</p>
+                        {insight.warning && <Badge variant="destructive">Attention</Badge>}
+                      </div>
+                      <p className="text-muted-foreground mt-0.5 text-sm">{insight.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </FeaturePreview>
       </div>
     );
   }

@@ -1,36 +1,26 @@
 import Link from "next/link";
-import { Space_Grotesk, Space_Mono } from "next/font/google";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { MONETIZATION_CATEGORIES } from "@/lib/constants/categories";
 import { ReceiptTicker } from "@/components/marketing/receipt-ticker";
-import { cn } from "@/lib/utils";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "700"],
-});
-
-const spaceMono = Space_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono-ui",
-  weight: ["400", "700"],
-});
-
-const INK = "#0e0f0c";
-const PAPER = "#f7f5ee";
-const SIGNAL = "#3af07a";
-const RUST = "#ff5a36";
-const LINE = "#2a2c22";
-const MUTED = "#9a9c8e";
+// This page stays dark in both themes — it's the marketing face of the
+// product, not a themed app surface. It reads the brand tokens directly
+// (defined once in globals.css) rather than redeclaring the palette, so
+// the app and the marketing site can't drift apart again.
+const INK = "var(--brand-ink)";
+const PAPER = "var(--brand-paper)";
+const SIGNAL = "var(--brand-signal)";
+const RUST = "var(--brand-rust)";
+const LINE = "var(--brand-line)";
+const MUTED = "var(--brand-muted)";
 
 export default async function Home() {
   const plans = await db.plan.findMany({ where: { isActive: true }, orderBy: { priceMonthlyMinor: "asc" } });
 
   return (
     <div
-      className={cn(spaceGrotesk.variable, spaceMono.variable, "font-[family-name:var(--font-display)]")}
+      className="font-sans"
       style={{ backgroundColor: INK, color: PAPER }}
     >
       {/* Nav */}
@@ -65,7 +55,7 @@ export default async function Home() {
       <section className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 px-6 pt-10 pb-24 lg:grid-cols-[1.1fr_0.9fr] lg:pt-16">
         <div className="flex flex-col gap-6">
           <p
-            className="font-[family-name:var(--font-mono-ui)] text-xs tracking-[0.2em]"
+            className="font-mono text-xs tracking-[0.2em]"
             style={{ color: SIGNAL }}
           >
             STOREFRONT · CHECKOUT · DELIVERY
@@ -103,7 +93,7 @@ export default async function Home() {
       {/* What you can sell */}
       <section className="mx-auto max-w-6xl px-6 pb-24">
         <p
-          className="mb-6 font-[family-name:var(--font-mono-ui)] text-xs tracking-[0.2em]"
+          className="mb-6 font-mono text-xs tracking-[0.2em]"
           style={{ color: MUTED }}
         >
           WHAT YOU CAN SELL
@@ -117,7 +107,7 @@ export default async function Home() {
             >
               <span className="text-sm">{category.label}</span>
               <span
-                className="font-[family-name:var(--font-mono-ui)] text-[11px] tracking-[0.1em]"
+                className="font-mono text-[11px] tracking-[0.1em]"
                 style={{ color: category.active ? SIGNAL : MUTED }}
               >
                 {category.active ? "ACTIVE" : "COMING SOON"}
@@ -130,7 +120,7 @@ export default async function Home() {
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl px-6 pb-28">
         <p
-          className="mb-6 font-[family-name:var(--font-mono-ui)] text-xs tracking-[0.2em]"
+          className="mb-6 font-mono text-xs tracking-[0.2em]"
           style={{ color: MUTED }}
         >
           PRICING
@@ -142,10 +132,10 @@ export default async function Home() {
               <div
                 key={plan.id}
                 className="flex flex-col gap-4 px-5 py-6"
-                style={{ backgroundColor: PAPER, color: "#1c1d16" }}
+                style={{ backgroundColor: PAPER, color: INK }}
               >
                 <div>
-                  <p className="font-[family-name:var(--font-mono-ui)] text-[11px] tracking-[0.15em] text-[#8a8a7a]">
+                  <p className="font-mono text-[11px] tracking-[0.15em] text-[var(--brand-muted-on-paper)]">
                     {plan.key}
                   </p>
                   <p className="mt-1 text-2xl font-medium tracking-tight">
@@ -154,18 +144,18 @@ export default async function Home() {
                       : formatMoney(plan.priceMonthlyMinor, plan.currency)}
                   </p>
                   {plan.priceMonthlyMinor > 0 && (
-                    <p className="font-[family-name:var(--font-mono-ui)] text-[11px] text-[#8a8a7a]">
+                    <p className="font-mono text-[11px] text-[var(--brand-muted-on-paper)]">
                       per month
                     </p>
                   )}
                 </div>
-                <div className="border-t border-dashed border-[#c9c7ba]" />
+                <div className="border-t border-dashed border-[color-mix(in_oklch,var(--brand-ink),var(--brand-paper)_78%)]" />
                 <ul className="flex flex-col gap-2 text-sm">
                   {features.map((feature) => (
                     <li key={feature} className="flex items-baseline gap-2">
                       <span
-                        className="font-[family-name:var(--font-mono-ui)] text-xs"
-                        style={{ color: "#1c6b3c" }}
+                        className="font-mono text-xs"
+                        style={{ color: "color-mix(in oklch, var(--brand-signal), var(--brand-ink) 45%)" }}
                       >
                         +
                       </span>
@@ -197,7 +187,7 @@ export default async function Home() {
       </section>
 
       <footer
-        className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-8 font-[family-name:var(--font-mono-ui)] text-[11px] tracking-[0.1em]"
+        className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-8 font-mono text-[11px] tracking-[0.1em]"
         style={{ color: MUTED }}
       >
         <span>MONETIZED © {new Date().getFullYear()}</span>

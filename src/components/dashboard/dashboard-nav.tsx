@@ -70,9 +70,12 @@ export function DashboardNav({
             onClick={onNavigate}
             className={cn(
               "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              // Selection uses the sidebar tokens, not --primary: the mint
+              // accent is reserved for actions, so a selected nav row never
+              // competes with the page's actual call to action.
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
             )}
           >
             <Icon className="size-4" />
@@ -80,8 +83,10 @@ export function DashboardNav({
             {locked && (
               <span
                 className={cn(
-                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tracking-wide",
-                  isActive ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground",
+                  "rounded-full px-1.5 py-0.5 font-mono text-[10px] tracking-wide",
+                  isActive
+                    ? "bg-sidebar-primary-foreground/20"
+                    : "bg-muted text-muted-foreground",
                 )}
               >
                 PRO

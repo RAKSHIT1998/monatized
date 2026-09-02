@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { FileDrop } from "@/components/ui/file-drop";
 import { cn } from "@/lib/utils";
 
 type ProductKind = "DIGITAL" | "COURSE" | "SUBSCRIPTION" | "BOOKING" | "PHYSICAL" | "TIP";
@@ -189,7 +190,7 @@ export function NewProductForm() {
           {type === "DIGITAL" && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="file">File customers receive</Label>
-              <Input id="file" name="file" type="file" />
+              <FileDrop name="file" hint="Delivered instantly after checkout" />
               {state?.errors?.file && (
                 <p className="text-sm text-destructive">{state.errors.file[0]}</p>
               )}

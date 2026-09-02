@@ -8,6 +8,8 @@ import { UserMenu } from "./user-menu";
 import { PwaInstall } from "@/components/pwa-install";
 import { LiveSaleNotifier } from "@/components/dashboard/live-sale-notifier";
 import { NotificationBell } from "@/components/dashboard/notification-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Wordmark } from "@/components/brand/wordmark";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { PlanKey } from "@/generated/prisma/client";
@@ -26,9 +28,9 @@ export function DashboardShell({ displayName, username, planName, planKey, child
   return (
     <div className="flex min-h-screen">
       <LiveSaleNotifier />
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-neutral-50/50 p-4 md:flex dark:bg-neutral-950/50">
-        <Link href="/dashboard" className="mb-6 px-2 text-lg font-semibold tracking-tight">
-          Monetized
+      <aside className="bg-sidebar hidden w-60 shrink-0 flex-col border-r p-4 md:flex">
+        <Link href="/dashboard" className="mb-6 px-2">
+          <Wordmark />
         </Link>
         <DashboardNav planKey={planKey} />
       </aside>
@@ -47,7 +49,7 @@ export function DashboardShell({ displayName, username, planName, planKey, child
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="truncate text-sm font-medium">{displayName}</span>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-mono text-[10px] tracking-wide uppercase">
               {planName}
             </span>
           </div>
@@ -64,6 +66,8 @@ export function DashboardShell({ displayName, username, planName, planKey, child
 
           <PwaInstall />
 
+          <ThemeToggle />
+
           <NotificationBell />
 
           <UserMenu displayName={displayName} />
@@ -75,7 +79,9 @@ export function DashboardShell({ displayName, username, planName, planKey, child
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="p-4">
           <SheetHeader className="p-0">
-            <SheetTitle>Monetized</SheetTitle>
+            <SheetTitle>
+              <Wordmark />
+            </SheetTitle>
           </SheetHeader>
           <DashboardNav planKey={planKey} onNavigate={() => setMobileNavOpen(false)} />
         </SheetContent>

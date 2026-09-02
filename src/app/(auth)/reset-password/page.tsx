@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthFormShell } from "@/components/auth/auth-form-shell";
 import { ResetPasswordForm } from "./reset-password-form";
 
 export const metadata: Metadata = {
@@ -16,19 +16,20 @@ export default async function ResetPasswordPage({
 
   if (!token) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Invalid reset link</CardTitle>
-          <CardDescription>This link is missing its reset token.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-center text-sm text-muted-foreground">
-            <Link href="/forgot-password" className="font-medium text-foreground underline underline-offset-4">
-              Request a new reset link
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+      <AuthFormShell
+        title="Invalid reset link"
+        description="This link is missing its reset token."
+        footer={
+          <Link
+            href="/forgot-password"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Request a new reset link
+          </Link>
+        }
+      >
+        {null}
+      </AuthFormShell>
     );
   }
 

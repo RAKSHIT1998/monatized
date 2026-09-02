@@ -3,6 +3,8 @@ import { requireOnboardedCreator } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { Users } from "lucide-react";
 import { CustomersTable } from "./customers-table";
 
 export const metadata: Metadata = {
@@ -28,11 +30,13 @@ export default async function CustomersPage() {
       </div>
 
       {customers.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No customers yet.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Users}
+          title="No customers yet"
+          description="Anyone who checks out is saved here automatically, with what they've spent and bought — so you can tag them and email them later."
+          action={{ label: "View your products", href: "/dashboard/products" }}
+          hint="Built from real orders — nothing to import"
+        />
       ) : (
         <Card>
           <CardContent>

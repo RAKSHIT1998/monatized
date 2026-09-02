@@ -249,6 +249,31 @@ Next.js 16 (App Router, Turbopack) · TypeScript · Tailwind CSS v4 · shadcn/ui
 engine) · Playwright (E2E) · Vitest (unit) · `@anthropic-ai/sdk` (optional AI
 provider).
 
+## Design system
+
+The palette and type live in one place — `src/app/globals.css` and
+`src/app/layout.tsx` — and everything else inherits them. That's deliberate:
+the marketing page used to import its own fonts and hardcode its own hex
+values inline, which is how the app and the landing page drifted into
+looking like two different products.
+
+- **Type**: Space Grotesk (`--font-sans`, also used for headings) and Space
+  Mono (`--font-mono`, used for eyebrow labels, plan chips, IDs and other
+  small caps-tracked text). Loaded once in the root layout; Tailwind's
+  `@theme inline` block maps them so every shadcn component picks them up.
+- **Colour**: ink `#0e0f0c`, paper `#f7f5ee`, signal `#3af07a`, rust
+  `#ff5a36`, exposed as `--brand-*` tokens and consumed by both themes.
+  Neutrals carry a slight olive cast rather than being pure grey.
+- **Light vs dark**: the app is light by default with full dark-mode support
+  (toggle in the dashboard header; `next-themes`, `defaultTheme="system"`).
+  Light mode deepens the accent to `oklch(0.62 0.16 152)` because the
+  landing's bright signal only holds up against ink — on paper it goes
+  neon. Dark mode keeps the original signal.
+- **Marketing pages stay dark in both themes** — `src/app/page.tsx` reads
+  the `--brand-*` tokens directly rather than the themed ones.
+- `--destructive` is semantic and deliberately separate from rust; rust is a
+  brand accent, never a way of saying "something went wrong".
+
 ## Getting started
 
 **Prerequisites:** Node 22+, Docker (for local Postgres).
