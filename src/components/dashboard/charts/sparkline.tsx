@@ -10,11 +10,11 @@ export type SparklinePoint = { label: string; value: number };
 // Actions) — this crashed at runtime the first time around.
 export type SparklineFormat = { type: "money"; currency: string } | { type: "count" };
 
-// Sequential blue (dataviz skill palette) — same accent as BarChart. The line
-// itself stays in the de-emphasis (muted) hue; only the current period's
-// segment and end-dot carry the accent, per the skill's stat-tile contract.
-const ACCENT_STROKE = "stroke-[#2a78d6] dark:stroke-[#3987e5]";
-const ACCENT_FILL = "fill-[#2a78d6] dark:fill-[#3987e5]";
+// Same chart ramp as BarChart, read from the shared tokens. The line itself
+// stays in the de-emphasis (muted) hue; only the current period's segment
+// and end-dot carry the accent, per the stat-tile contract.
+const ACCENT_STROKE = "stroke-[var(--chart-1)]";
+const ACCENT_FILL = "fill-[var(--chart-1)]";
 
 export function Sparkline({
   data,

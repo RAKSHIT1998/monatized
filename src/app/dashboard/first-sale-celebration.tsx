@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "monetized_celebrated_first_sale";
-// Matches the dataviz skill's categorical order (slots 1/3/2/6) — confetti is
-// decorative, not data, so a handful of the validated hues is enough; it
-// doesn't need the full identity-safe ordering a chart would.
-const CONFETTI_COLORS = ["#2a78d6", "#1baf7a", "#eb6834", "#008300"];
+// Brand palette rather than the chart ramp — confetti is decorative, not
+// data. Literal hex because these are painted onto inline styles for
+// individual pieces, where a CSS var per piece buys nothing.
+const CONFETTI_COLORS = ["#3af07a", "#ff5a36", "#157f45", "#f7f5ee"];
 
 type Piece = { id: number; left: number; delay: number; color: string };
 

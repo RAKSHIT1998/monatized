@@ -20,8 +20,10 @@ function niceMax(value: number) {
   return step * magnitude;
 }
 
-// Sequential blue (dataviz skill palette) — light step 450 / dark step 400.
-const BAR_FILL = "fill-[#2a78d6] dark:fill-[#3987e5]";
+// Reads the shared chart ramp from globals.css rather than a hardcoded hue,
+// so the charts belong to the same palette as the rest of the product. The
+// token is already tuned per theme (deeper on paper, brighter on ink).
+const BAR_FILL = "fill-[var(--chart-1)]";
 
 export function BarChart({
   data,
