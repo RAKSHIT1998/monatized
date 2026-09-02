@@ -36,6 +36,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
+# The local storage driver writes uploads under /app/storage. The runner
+# stage runs as the non-root `nextjs` user, and /app is root-owned, so
+# without this the very first upload dies on EACCES trying to mkdir it.
+# Declared a volume too: container-local disk is ephemeral, and uploads
+# shouldn't vanish on redeploy. Set STORAGE_DRIVER=s3 to bypass this path.
+RUN mkdir -p /app/storage && chown -R nextjs:nodejs /app/storage
+VOLUME ["/app/storage"]
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
